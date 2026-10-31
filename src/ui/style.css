@@ -1,0 +1,85 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+:root {
+  color-scheme: light dark;
+  --bg: #f7f7f5;
+  --panel: #ffffff;
+  --ink: #1b1d1c;
+  --muted: #5d6461;
+  --line: #d9dcd9;
+  --accent: #0b6e4f;
+  --accent-ink: #ffffff;
+  --bad: #b3261e;
+  --tip: #fff4d6;
+  --tip-ink: #57430a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #151716;
+    --panel: #1f2221;
+    --ink: #eceeec;
+    --muted: #a2a9a5;
+    --line: #363a38;
+    --accent: #3fbf95;
+    --accent-ink: #06231a;
+    --bad: #f2867f;
+    --tip: #3a3115;
+    --tip-ink: #f3e3ad;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 38rem; margin: 0 auto; padding: 2rem 1.25rem; }
+h1 { font-size: 1.5rem; margin: 0 0 1.25rem; line-height: 1.25; }
+h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+section { margin-bottom: 1.5rem; }
+p { margin: 0.25rem 0; }
+a { color: var(--accent); }
+.help { color: var(--muted); font-size: 0.85rem; }
+.tip { background: var(--tip); color: var(--tip-ink); border-radius: 6px; padding: 0.55rem 0.7rem; font-size: 0.87rem; margin-top: 0.6rem; }
+#status:empty { display: none; }
+#status { color: var(--muted); margin-bottom: 1rem; }
+
+button { font: inherit; border-radius: 6px; padding: 0.45rem 0.8rem; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); max-width: 100%; overflow-wrap: anywhere; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.link { border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; font-size: 0.85rem; }
+button.link:hover { color: var(--ink); }
+
+.plain, .list { list-style: none; margin: 0; padding: 0; }
+.row, .converted, .failed { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem 0.9rem; margin-bottom: 0.6rem; }
+.name, .converted > strong, .failed > strong { display: block; overflow-wrap: anywhere; }
+.site { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+.row-body { margin-top: 0.6rem; }
+.row-foot { margin-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.explain { font-size: 0.9rem; margin-bottom: 0.4rem; }
+.working { color: var(--muted); }
+.failed { border-color: var(--bad); }
+.failed p { color: var(--bad); }
+.saved { color: var(--muted); font-size: 0.9rem; }
+.notes { margin: 0.5rem 0 0; padding-left: 1.1rem; font-size: 0.87rem; }
+
+.drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 1.25rem; text-align: center; }
+.drop.over { border-color: var(--accent); }
+.drop .help { margin-top: 0.6rem; }
+.drop p:first-child { margin-bottom: 0.5rem; }
+details { margin-bottom: 1.5rem; }
+summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; }
+details #options { margin-top: 0.8rem; }
+
+.field { margin-bottom: 1rem; }
+.field > label:not(.check), .label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+.check { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.93rem; margin-bottom: 0.2rem; }
+select { font: inherit; padding: 0.3rem 0.4rem; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); max-width: 100%; }
+.toolheads { display: flex; flex-wrap: wrap; gap: 0.9rem; }
+.toolheads label { display: flex; gap: 0.3rem; align-items: baseline; }
+.list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.list li.empty { color: var(--muted); border: 0; }
+
+footer { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 0.8rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; }
+
+body.small main { padding: 1rem; }
+body.small h1 { font-size: 1.1rem; margin-bottom: 0.8rem; }
+body.small .drop { padding: 0.8rem; }
+body.small .drop.secondary > p:first-child, body.small .drop.secondary .help { display: none; }

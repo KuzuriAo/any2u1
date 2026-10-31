@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>any2u1 settings</title>
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>any2u1 settings</h1>
+      <section>
+        <h2>Offers</h2>
+        <div class="field">
+          <label class="check"><input id="enabled" type="checkbox" /> Offer to convert when a 3MF finishes downloading</label>
+        </div>
+        <div class="field">
+          <span class="label">How to offer</span>
+          <label class="check"><input id="style-window" type="radio" name="style" /> A small window</label>
+          <label class="check"><input id="style-badge" type="radio" name="style" /> Only a number on the toolbar button</label>
+          <p id="pin-tip" class="tip" hidden>Pin the any2u1 button to your toolbar, or you won't see the number: the browser hides it on an unpinned extension. Clicking the button opens the small window.</p>
+        </div>
+      </section>
+      <section>
+        <h2>Sites with no offer</h2>
+        <ul id="quiet" class="list"></ul>
+      </section>
+      <section>
+        <h2>Default options</h2>
+        <div id="options"></div>
+      </section>
+      <section>
+        <h2>Hosts you gave access to</h2>
+        <p class="help">The extension uses these only to fetch a file you chose to convert. In Chrome and Edge, a host you remove can come back without a new prompt, because the browser remembers the approval until the extension is removed.</p>
+        <ul id="hosts" class="list"></ul>
+      </section>
+      <footer>
+        <p><span id="version"></span>. Built on the <a href="https://github.com/KuzuriAo/any2orca" target="_blank" rel="noreferrer">any2orca</a> library. <a href="licenses/README.txt" target="_blank">Licenses</a>.</p>
+      </footer>
+    </main>
+    <script type="module" src="/src/ui/settingsPage.ts"></script>
+  </body>
+</html>

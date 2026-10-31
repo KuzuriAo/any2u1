@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+/** The user's settings. Whatever storage holds is checked on the way in, and anything malformed falls back to the default. */
+
+export type FilamentNames = "original" | "generic" | "snapmaker";
+export type OfferStyle = "window" | "badge";
+export type Toolheads = [boolean, boolean, boolean, boolean];
+
+export type ConvertSettings = {
+  /** Null means the newest release the catalog holds. */
+  snapmakerOrcaVersion: string | null;
+  highFlowToolheads: Toolheads;
+  hardenedNozzles: boolean;
+  filamentNames: FilamentNames;
+};
+
+export type Settings = {
+  enabled: boolean;
+  offerStyle: OfferStyle;
+  /** Hosts with no offer, without a leading `www.`. */
+  quietSites: string[];
+  convert: ConvertSettings;
+};
+
+const MAX_QUIET_SITES = 500;
+const MAX_HOST = 253;
+
+export function defaultSettings(): Settings {
+  return {
+    enabled: true,
+    offerStyle: "window",
+    quietSites: [],
+    convert: { snapmakerOrcaVersion: null, highFlowToolheads: [false, false, false, false], hardenedNozzles: false, filamentNames: "original" },
+  };
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function isToolheads(value: unknown): value is Toolheads {
+  return Array.isArray(value) && value.length === 4 && value.every((item) => typeof item === "boolean");
+}
+
+export function parseSettings(stored: unknown): Settings {
+  const defaults = defaultSettings();
+  const raw = record(stored);
+  const convert = record(raw.convert);
+  const version = convert.snapmakerOrcaVersion;
+  return {
+    enabled: typeof raw.enabled === "boolean" ? raw.enabled : defaults.enabled,
+    offerStyle: raw.offerStyle === "badge" ? "badge" : "window",
+    quietSites: Array.isArray(raw.quietSites)
+      ? [...new Set(raw.quietSites.filter((host): host is string => typeof host === "string" && host !== "" && host.length <= MAX_HOST))].slice(0, MAX_QUIET_SITES)
+      : [],
+    convert: {
+      snapmakerOrcaVersion: typeof version === "string" && /^\d+(\.\d+){1,3}$/.test(version) ? version : null,
+      highFlowToolheads: isToolheads(convert.highFlowToolheads) ? convert.highFlowToolheads : defaults.convert.highFlowToolheads,
+      hardenedNozzles: convert.hardenedNozzles === true,
+      filamentNames: convert.filamentNames === "generic" || convert.filamentNames === "snapmaker" ? convert.filamentNames : "original",
+    },
+  };
+}
+
+/** What the library is asked for, given the releases its catalog holds. A saved release that's gone falls back to the newest. */
+export function convertOptions(convert: ConvertSettings, releases: readonly string[]) {
+  const version = convert.snapmakerOrcaVersion;
+  return {
+    ...(version !== null && releases.includes(version) ? { snapmakerOrcaVersion: version } : {}),
+    highFlowHotends: convert.highFlowToolheads.some(Boolean) ? [...convert.highFlowToolheads] : false,
+    hardenedNozzles: convert.hardenedNozzles,
+    ...(convert.filamentNames === "original" ? {} : { filamentComplianceMode: convert.filamentNames }),
+  };
+}
+
+/** Exact hosts only, so that quieting one bucket on a storage provider doesn't quiet every site using that provider. */
+export function isQuiet(hosts: readonly string[], quietSites: readonly string[]): boolean {
+  return hosts.some((host) => quietSites.includes(host));
+}
