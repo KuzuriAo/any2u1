@@ -15,7 +15,7 @@ const require = createRequire(import.meta.url);
 const dist = join(root, "dist");
 const chrome = join(dist, "chrome");
 const firefox = join(dist, "firefox");
-const { version, description } = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"));
+const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"));
 
 rmSync(dist, { recursive: true, force: true });
 
@@ -64,7 +64,7 @@ const base = {
   manifest_version: 3,
   name: "any2u1",
   version,
-  description: description.slice(0, 132),
+  description: "Turn a 3MF you download into a Snapmaker U1 file, right on your device. Nothing is uploaded.",
   permissions: ["downloads", "storage"],
   optional_host_permissions: ["https://*/*"],
   action: {

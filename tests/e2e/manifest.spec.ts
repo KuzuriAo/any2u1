@@ -25,6 +25,17 @@ for (const target of ["chrome", "firefox"]) {
       }
     });
 
+    test("has a description short enough for the stores", () => {
+      const description = manifestOf(target).description as string;
+      expect(description.length).toBeLessThanOrEqual(132);
+      expect(description.endsWith(".")).toBe(true);
+    });
+
+    test("the background script makes no request", () => {
+      const code = readFileSync(join(dist, target, "background.js"), "utf-8");
+      expect(code).not.toMatch(/\bfetch\(|XMLHttpRequest|WebSocket|sendBeacon/);
+    });
+
     test("opens no popup, which would close on the file dialog in Firefox", () => {
       expect(manifestOf(target).action).not.toHaveProperty("default_popup");
     });

@@ -149,3 +149,24 @@ test("the extension's own save gets no offer", async () => {
   expect(await session.pendingCount()).toBe(0);
   expect(session.context.pages().filter((p) => p.url().includes("view=window"))).toEqual([]);
 });
+
+test("a file already set up for the U1 says so", async () => {
+  const page = await session.open("convert.html");
+  const once = await convert(fixture(SAMPLE), { profiles: bundledProfileSource() });
+  await page.setInputFiles("#file", { name: "already_U1.3mf", mimeType: "model/3mf", buffer: Buffer.from(once.output) });
+  await expect(page.locator(".converted .notes")).toContainText("already set up for the Snapmaker U1");
+});
+
+test("a file dropped anywhere on the page converts, and the page stays", async () => {
+  const page = await session.open("convert.html");
+  const base64 = fixture(SAMPLE).toString("base64");
+  const url = page.url();
+  await page.evaluate((data) => {
+    const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], "dropped.3mf"));
+    document.querySelector("h1")!.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  }, base64);
+  await expect(page.locator(".converted strong")).toHaveText("dropped_U1.3mf");
+  expect(page.url()).toBe(url);
+});

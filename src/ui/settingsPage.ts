@@ -22,12 +22,11 @@ function drawQuiet(settings: Settings): void {
 }
 
 async function drawHosts(): Promise<void> {
-  const { origins = [] } = await api.permissions.getAll();
-  // Only hosts the user allowed one at a time: the broad optional pattern never appears here on its own.
-  const hosts = origins.filter((origin) => origin !== "https://*/*");
+  // Everything granted, including anything given in the browser's own extension settings rather than through this extension.
+  const { origins: hosts = [] } = await api.permissions.getAll();
   hostList.replaceChildren(...(hosts.length === 0
     ? [el("li", { class: "empty" }, "None.")]
-    : hosts.map((origin) => el("li", {}, el("span", {}, origin.replace(/^https:\/\//, "").replace(/\/\*$/, "")), button("Remove", () => {
+    : hosts.map((origin) => el("li", {}, el("span", {}, origin === "https://*/*" ? "All sites (given in the browser's settings)" : origin.replace(/^https:\/\//, "").replace(/\/\*$/, "")), button("Remove", () => {
         void api.permissions.remove({ origins: [origin] }).then(drawHosts);
       }, "link")))));
 }

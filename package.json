@@ -8,6 +8,7 @@
   "engines": { "node": ">=20.19" },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "package": "npm run build && node scripts/package.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test"

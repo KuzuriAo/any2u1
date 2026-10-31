@@ -230,6 +230,7 @@ async function drawPending(): Promise<void> {
   }));
 }
 
+// The picker's own wait on this input then finds it empty, so a file is never converted twice.
 manualPicker.addEventListener("change", () => {
   const files = [...(manualPicker.files ?? [])];
   manualPicker.value = "";
@@ -238,14 +239,17 @@ manualPicker.addEventListener("change", () => {
 
 need("#choose").addEventListener("click", () => void pickFiles(manualPicker).then(convertPicked));
 
+// The whole page takes a drop: a file dropped beside the zone would otherwise make the browser leave the page.
 for (const type of ["dragenter", "dragover"]) {
-  dropZone.addEventListener(type, (event) => {
+  document.addEventListener(type, (event) => {
     event.preventDefault();
     dropZone.classList.add("over");
   });
 }
-dropZone.addEventListener("dragleave", () => dropZone.classList.remove("over"));
-dropZone.addEventListener("drop", (event) => {
+document.addEventListener("dragleave", (event) => {
+  if ((event as DragEvent).relatedTarget === null) dropZone.classList.remove("over");
+});
+document.addEventListener("drop", (event) => {
   event.preventDefault();
   dropZone.classList.remove("over");
   void convertPicked([...(event.dataTransfer?.files ?? [])]);

@@ -4,7 +4,7 @@ A browser extension that turns a 3MF project into a Snapmaker U1 file, on any si
 
 It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer and Flash Studio. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
 
-It runs in Chrome, Edge and Firefox (140 or newer). It isn't in any extension store yet, so for now you load it yourself.
+It's tested on Chrome 156, Edge 156 and Firefox 159. It isn't in any extension store yet, so for now you load it yourself.
 
 ## Try it
 
@@ -57,7 +57,7 @@ npm run test:e2e    # builds, then runs the browser tests in Chromium
 
 The browser tests need Playwright's Chromium once (`npx playwright install chromium`) and `openssl` to make a throwaway certificate for their local test site. They check, among other things, that the manifest asks for exactly the permissions above, and that the output is byte-for-byte what the library produces for the same file and options.
 
-`dist/chrome` also serves Edge; the Firefox build differs only in its manifest.
+`dist/chrome` also serves Edge; the Firefox build differs only in its manifest. `npm run package` zips each build after building.
 
 ## License
 
