@@ -3,6 +3,7 @@ import { api } from "../browser";
 import { listReleases } from "./engine";
 import { button, el, need } from "./dom";
 import { renderOptions } from "./optionsForm";
+import { showReleaseNotice } from "./releaseNotice";
 import { loadSettings, onSettingsChanged, updateSettings } from "./settingsStore";
 import type { Settings } from "../core/settings";
 
@@ -43,7 +44,10 @@ styleWindow.addEventListener("change", () => void updateSettings((s) => (s.offer
 styleBadge.addEventListener("change", () => void updateSettings((s) => (s.offerStyle = "badge")));
 
 async function draw(): Promise<void> {
-  const [settings, releases] = await Promise.all([loadSettings(), listReleases()]);
+  const releases = await listReleases();
+  // The notice comes first: it clears a saved choice the catalog no longer holds.
+  await showReleaseNotice(releases);
+  const settings = await loadSettings();
   drawSwitches(settings);
   drawQuiet(settings);
   renderOptions(options, settings.convert, releases);

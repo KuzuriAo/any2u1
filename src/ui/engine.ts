@@ -7,6 +7,7 @@ import { createConverterWorker, type ConverterWorker } from "any2orca/worker";
 import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
 import { is3mfName, isZipName, outputName } from "../core/names";
+import { activeRelease } from "../core/releases";
 import { convertOptions, type ConvertSettings } from "../core/settings";
 
 export type Converted = {
@@ -14,6 +15,7 @@ export type Converted = {
   name: string;
   output: Uint8Array;
   profile: string;
+  orcaVersion: string | undefined;
   notes: string[];
 };
 export type Failed = { source: string; error: string };
@@ -84,6 +86,7 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
       name: outputName(source),
       output,
       profile: report.profile.displayName,
+      orcaVersion: activeRelease(convert.snapmakerOrcaVersion, releases),
       notes: notesFor(inspection.printerModel, inspection.sourceVendor, report.warnings, report.filamentComplianceFallback, report.filamentComplianceUnchanged),
     };
   } finally {

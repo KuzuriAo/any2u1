@@ -5,10 +5,12 @@ import { fetchFile, type FetchFailure } from "../core/fetchFile";
 import { MAX_FILES_AT_ONCE, MAX_INPUT_BYTES } from "../core/limits";
 import { isPendingKey, listPending, removePending, type PendingDownload } from "../core/pending";
 import { deliveryOf, type Delivery } from "../core/recognize";
+import { activeRelease } from "../core/releases";
 import { convertFile, listReleases, type Converted, type Outcome } from "./engine";
 import { button, el, need } from "./dom";
 import { renderOptions } from "./optionsForm";
 import { pickFiles } from "./picker";
+import { showReleaseNotice } from "./releaseNotice";
 import { loadSettings, onSettingsChanged, updateSettings } from "./settingsStore";
 
 const pendingList = need<HTMLUListElement>("#pending");
@@ -82,7 +84,7 @@ function showOutcome(outcome: Outcome): boolean {
   }
   const item = el("li", { class: "converted" },
     el("strong", {}, outcome.name),
-    el("p", { class: "saved" }, `Saved to your downloads, using ${outcome.profile}. `),
+    el("p", { class: "saved" }, `Saved to your downloads, using ${outcome.profile}${outcome.orcaVersion ? `, for Snapmaker Orca ${outcome.orcaVersion}` : ""}. `),
     outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, note))));
   results.append(item);
   void save(outcome, item).catch((error: unknown) => {
@@ -264,12 +266,21 @@ api.storage.onChanged.addListener((changes, area) => {
 async function drawOptions(): Promise<void> {
   const [settings, releases] = await Promise.all([loadSettings(), listReleases()]);
   renderOptions(options, settings.convert, releases);
+  drawVersion(settings.convert.snapmakerOrcaVersion, releases);
+}
+
+// The options start closed in the small window, so what the file will be converted for stays in sight.
+function drawVersion(chosen: string | null, releases: readonly string[]): void {
+  const version = activeRelease(chosen, releases);
+  need("#options-version").textContent = version ? `(for Snapmaker Orca ${version})` : "";
 }
 
 // Redrawing options another page changed is fine; redrawing under the user's own click isn't needed, since the values match.
-onSettingsChanged(() => {
+onSettingsChanged((settings) => {
   if (!options.contains(document.activeElement)) void drawOptions();
+  else void listReleases().then((releases) => drawVersion(settings.convert.snapmakerOrcaVersion, releases));
 });
 
-void drawOptions();
+// The notice comes first: it clears a saved choice the catalog no longer holds.
+void listReleases().then(showReleaseNotice).then(drawOptions);
 void drawPending();

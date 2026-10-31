@@ -45,6 +45,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.link { border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; font-size: 0.85rem; }
 button.link:hover { color: var(--ink); }
+.tip button.link { color: inherit; }
 
 .plain, .list { list-style: none; margin: 0; padding: 0; }
 .row, .converted, .failed { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem 0.9rem; margin-bottom: 0.6rem; }
@@ -67,6 +68,9 @@ button.link:hover { color: var(--ink); }
 details { margin-bottom: 1.5rem; }
 summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; }
 details #options { margin-top: 0.8rem; }
+
+.summary-note { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+#release-notice { margin: 0 0 1rem; }
 
 .field { margin-bottom: 1rem; }
 .field > label:not(.check), .label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }

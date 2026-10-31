@@ -35,6 +35,8 @@ You can also click the toolbar button and hand it a 3MF, or a zip holding 3MF fi
 
 **Options**, the same ones whichever way you start: the Snapmaker Orca version, which toolheads have the high-flow hotend, hardened steel nozzles, and filament names for Snapmaker Space.
 
+**Snapmaker Orca versions:** choose the version you run. The default is the newest the extension holds, and it keeps up to three. A new version arrives with an update of the extension, which the browser installs for you, and the extension then tells you once. It never goes online to check.
+
 ## What it asks for
 
 - **`downloads`:** to see that a 3MF finished downloading, save the converted file, and show it in its folder.
