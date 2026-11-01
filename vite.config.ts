@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { defineConfig } from "vite";
+// Local files imported from here, directly or through another file, need their .ts extension: Vite's native config loader requires it.
 import { withoutZodEvalProbe } from "./withoutZodEvalProbe.ts";
 
 export default defineConfig({
