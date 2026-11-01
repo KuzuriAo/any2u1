@@ -103,18 +103,20 @@ test("a damaged 3MF in a zip gets a clear message and doesn't stop the others", 
   await expect(page.locator(".failed p")).not.toBeEmpty();
 });
 
-test("a zip with no 3MF says so, in words about a zip", async () => {
-  const page = await session.open("convert.html");
-  await page.setInputFiles("#file", zipFile("stl-only.zip", { "part.stl": strToU8("solid x"), "readme.txt": strToU8("hi") }));
-  await expect(page.locator(".failed p")).toHaveText("This zip has no 3MF file inside, or it is damaged.");
-  expect(savedNames(session)).toEqual([]);
-});
+for (const name of ["stl-only.zip", "stl-only"]) {
+  test(`a zip with no 3MF says so, in words about a zip: named ${name}`, async () => {
+    const page = await session.open("convert.html");
+    await page.setInputFiles("#file", zipFile(name, { "part.stl": strToU8("solid x"), "readme.txt": strToU8("hi") }));
+    await expect(page.locator(".failed p")).toContainText("This file is a zip, but not a 3MF project");
+    expect(savedNames(session)).toEqual([]);
+  });
+}
 
 test("a project from a slicer that isn't supported gets a message that names it, and saves nothing", async () => {
   const page = await session.open("convert.html");
   await page.setInputFiles("#file", fixturePath("prusaslicer-2.9.6.3mf"));
   await expect(page.locator(".failed p")).toContainText("PrusaSlicer");
-  await expect(page.locator(".failed p")).toContainText("this extension");
+  await expect(page.locator(".failed p")).toContainText("can be converted");
   await expect(page.locator(".failed p")).not.toContainText("any2orca");
   expect(savedNames(session)).toEqual([]);
 });

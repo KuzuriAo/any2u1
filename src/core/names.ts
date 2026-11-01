@@ -23,10 +23,6 @@ export function outputName(name: string): string {
   return `${stem || "model"}_U1.3mf`;
 }
 
-export function isZipName(name: string): boolean {
-  return /\.zip$/i.test(name);
-}
-
 export function is3mfName(name: string): boolean {
   return /\.3mf$/i.test(name);
 }

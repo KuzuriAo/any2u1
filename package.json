@@ -5,7 +5,9 @@
   "description": "A browser extension that turns a 3MF from Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer or Flash Studio into a Snapmaker U1 file, entirely on your device.",
   "license": "AGPL-3.0-or-later",
   "type": "module",
-  "engines": { "node": ">=20.19" },
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "package": "npm run build && node scripts/package.mjs",
@@ -14,7 +16,7 @@
     "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
-    "any2orca": "0.3.1",
+    "any2orca": "0.3.2",
     "any2orca-profiles": "0.2.0"
   },
   "devDependencies": {
