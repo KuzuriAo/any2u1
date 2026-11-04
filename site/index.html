@@ -1,0 +1,61 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>any2u1: 3MF downloads into Snapmaker U1 files</title>
+    <meta name="description" content="A browser extension that turns a 3MF you download into a Snapmaker U1 file, on your own device." />
+    <link rel="icon" href="icon.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icon.png" alt="" />
+      <a href="./">any2u1</a>
+      <nav><a href="privacy.html">Privacy</a><a href="https://github.com/KuzuriAo/any2u1">Source</a></nav>
+    </header>
+    <main>
+      <h1>Download a model the way you always do. Get a Snapmaker U1 file.</h1>
+      <p class="lead">any2u1 is a browser extension. When a 3MF project finishes downloading, it offers to convert it for the Snapmaker U1, and does it on your device. Nothing is uploaded.</p>
+
+      <p>It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer and Flash Studio, on any site that offers a 3MF download.</p>
+
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li>A 3MF finishes downloading, and a small window asks whether to convert it.</li>
+        <li>You click <strong>Convert for Snapmaker U1</strong>. If the site's server allows it, the extension fetches the file again, with no prompt. If it doesn't, the extension explains and lets you choose: allow access to that one host, or pick the copy you saved. A file the site built in the page goes straight to picking the saved copy.</li>
+        <li>The converted file, named <code>&lt;name&gt;_U1.3mf</code>, is saved next to your other downloads, with any notes worth reading and a button to show it in its folder.</li>
+      </ol>
+      <div class="note">In Snapmaker Orca, choose <strong>Open as project</strong>, or open the file from an empty plate. "Import geometry only" drops the printer, filament and process settings.</div>
+      <p>You can also click the toolbar button and drop a 3MF, or a zip of 3MF files, on the page at any time. If you'd rather have no window, a setting shows a number on the toolbar button instead, and you can turn offers off, or off for one site.</p>
+
+      <h2>Options</h2>
+      <ul>
+        <li><strong>Snapmaker Orca version:</strong> pick the one you run. The newest is the default, and the extension tells you when an update adds one.</li>
+        <li><strong>High-flow toolheads:</strong> mark each toolhead with the Liber High Flow Hotend.</li>
+        <li><strong>Hardened steel nozzles,</strong> so Snapmaker Orca warns about abrasive filaments correctly.</li>
+        <li><strong>Filament names for Snapmaker Space,</strong> which accepts a file only if every filament name starts with Snapmaker or Generic. Only names change, never temperatures or flow.</li>
+      </ul>
+
+      <h2>What it asks for</h2>
+      <div class="table">
+        <table>
+          <tr><th>Permission</th><th>Why</th></tr>
+          <tr><td>Downloads</td><td>To see that a 3MF finished downloading, save the converted file, and show it in its folder.</td></tr>
+          <tr><td>Storage</td><td>To remember your settings.</td></tr>
+          <tr><td>One host, only if you allow it</td><td>To fetch a file you chose to convert, when that host's server won't otherwise let an extension read it. It never asks for all sites, and it doesn't read the pages you visit.</td></tr>
+        </table>
+      </div>
+
+      <h2>Install</h2>
+      <p>any2u1 isn't in the extension stores yet. Until it is, you can build it from <a href="https://github.com/KuzuriAo/any2u1">its source</a> and load it yourself; the README has the steps.</p>
+
+      <h2>Built on any2orca</h2>
+      <p>The conversion itself is the <a href="https://github.com/KuzuriAo/any2orca">any2orca</a> library, which I also maintain. The extension's tests check that each file it saves is byte-for-byte what the library makes from the same file and options.</p>
+    </main>
+    <footer>
+      <p>any2u1 is open source under the GNU AGPL, version 3 or later. It isn't made by or affiliated with Snapmaker. <a href="privacy.html">Privacy policy</a>.</p>
+    </footer>
+  </body>
+</html>
