@@ -31,10 +31,10 @@ for (const target of ["chrome", "firefox"]) {
       expect(description.endsWith(".")).toBe(true);
     });
 
-    test("the listing summary names the five slicers and leads with any site", () => {
+    test("the listing summary names the six slicers and leads with any site", () => {
       const description = manifestOf(target).description as string;
       expect(description).toMatch(/^Turn a 3MF from any site/);
-      for (const slicer of ["Bambu Studio", "Creality Print", "Anycubic", "Elegoo", "Flash Studio"]) expect(description).toContain(slicer);
+      for (const slicer of ["Bambu", "Creality", "Anycubic", "Elegoo", "Flash Studio", "PrusaSlicer"]) expect(description).toContain(slicer);
     });
 
     test("the background script makes no request", () => {

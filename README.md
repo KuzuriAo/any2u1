@@ -2,7 +2,7 @@
 
 A browser extension that turns a 3MF project into a Snapmaker U1 file, on any site that offers a 3MF download. Download a model the way you always do, and it offers to convert it. The conversion runs entirely on your device.
 
-It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer and Flash Studio. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
+It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio and PrusaSlicer. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
 
 It's tested on Chrome 156, Edge 156 and Firefox 159. It isn't in any extension store yet, so for now you load it yourself.
 

@@ -4,7 +4,7 @@ import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { libraryVersion } from "./helpers";
-import { expectOnlyThese, fixture, fixturePath, launch, SAMPLE, savedNames, sha256, type Session } from "./helpers";
+import { expectOnlyThese, fixture, fixturePath, launch, PRUSA_FIXTURES, SAMPLE, savedNames, sha256, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -28,6 +28,7 @@ for (const name of [
   "anycubic-slicer-next-2.0.0.3-scene.3mf",
   "elegoo-slicer-1.5.3.5-scene.3mf",
   "flash-studio-1.7.20-scene.3mf",
+  ...PRUSA_FIXTURES,
 ]) {
   test(`${name}: same bytes as the library, with nothing but the extension's own files requested`, async () => {
     const page = await session.open("convert.html");
@@ -113,12 +114,15 @@ for (const name of ["stl-only.zip", "stl-only"]) {
   });
 }
 
-test("a project from a slicer that isn't supported gets a message that names it, and saves nothing", async () => {
+test("a project from a slicer that isn't supported gets a message that names it and the slicers that work, and saves nothing", async () => {
   const page = await session.open("convert.html");
-  await page.setInputFiles("#file", fixturePath("prusaslicer-2.9.6.3mf"));
-  await expect(page.locator(".failed p")).toContainText("PrusaSlicer");
-  await expect(page.locator(".failed p")).toContainText("can be converted");
-  await expect(page.locator(".failed p")).not.toContainText("any2orca");
+  await page.setInputFiles("#file", { name: "other.3mf", mimeType: "model/3mf", buffer: superSlicerProject() });
+  const message = page.locator(".failed p");
+  await expect(message).toContainText("SuperSlicer");
+  await expect(message).toContainText("can be converted");
+  // The list of slicers that work is the library's own, and it names PrusaSlicer.
+  await expect(message).toContainText("PrusaSlicer can be converted");
+  await expect(message).not.toContainText("any2orca");
   expect(savedNames(session)).toEqual([]);
 });
 
@@ -194,6 +198,30 @@ test("every filament is listed as the file has it, in order, with what each is n
   }
   // The scene's four filaments, renamed but kept in order: nothing dropped or merged.
   expect(library.report.filaments.map((filament) => filament.slot)).toEqual([1, 2, 3, 4]);
+});
+
+test("a PrusaSlicer scene keeps all four filaments in order with their colors, and shows the library's notes", async () => {
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", fixturePath("prusaslicer-2.9.6-scene.3mf"));
+  const library = await convert(fixture("prusaslicer-2.9.6-scene.3mf"), { profiles: bundledProfileSource(), highFlowHotends: false, hardenedNozzles: false });
+  const rows = page.locator(".converted .filaments li");
+  await expect(rows).toHaveCount(4);
+  expect(library.report.filaments.map((filament) => filament.slot)).toEqual([1, 2, 3, 4]);
+  // PrusaSlicer shows the extruder colors, and so does the list: black, blue, green, red, in that order.
+  expect(library.report.filaments.map((filament) => filament.color)).toEqual(["#000000", "#0000FF", "#21FF06", "#FB0207"]);
+  for (const [index, filament] of library.report.filaments.entries()) {
+    const row = rows.nth(index);
+    await expect(row.locator(".slot")).toHaveText(String(filament.slot));
+    const [red, green, blue] = [1, 3, 5].map((at) => parseInt(filament.color.slice(at, at + 2), 16));
+    await expect(row.locator(".swatch")).toHaveCSS("background-color", `rgb(${red}, ${green}, ${blue})`);
+  }
+  // The library's own notes: the extruder colors used, and the color change that became a pause. Nothing implies a limit on colors.
+  const notes = page.locator(".converted .notes li");
+  await expect(notes.filter({ hasText: "extruder colors" })).toHaveCount(1);
+  await expect(notes.filter({ hasText: "become pauses" })).toHaveCount(1);
+  expect(await notes.allTextContents()).toEqual(library.report.warnings);
+  await expect(page.locator(".converted")).not.toContainText(/limit|only four|at most four/i);
+  expect(savedNames(session)).toEqual(["prusaslicer-2.9.6-scene_U1.3mf"]);
 });
 
 test("a match that wasn't plain says why under the profile, and a plain one says nothing", async () => {
@@ -276,18 +304,18 @@ const written = (page: Awaited<ReturnType<typeof openWithClipboardSpy>>) => page
 
 test("a failure offers a report that names no file or address, and copies it", async () => {
   const page = await openWithClipboardSpy("convert.html");
-  const prusa = fixture("prusaslicer-2.9.6.3mf");
-  await page.setInputFiles("#file", { name: "secret-model-name.3mf", mimeType: "model/3mf", buffer: prusa });
+  const other = superSlicerProject();
+  await page.setInputFiles("#file", { name: "secret-model-name.3mf", mimeType: "model/3mf", buffer: other });
   const text = page.locator(".failed .report-text pre");
   await expect(page.locator(".failed strong")).toHaveText("secret-model-name.3mf");
   await page.locator(".failed .report-text summary").click();
-  await expect(text).toContainText("Error: unsupported_slicer (PrusaSlicer)");
-  await expect(text).toContainText(`File size: ${prusa.byteLength} bytes`);
+  await expect(text).toContainText("Error: unsupported_slicer (SuperSlicer)");
+  await expect(text).toContainText(`File size: ${other.byteLength} bytes`);
   await expect(text).toContainText("Browser: Chrome");
   await expect(text).toContainText(`any2orca ${libraryVersion}`);
   const shown = (await text.textContent()) ?? "";
   expect(shown).not.toContain("secret-model-name");
-  expect(shown).not.toMatch(/\.3mf|https?:|PrusaSlicer 2/i);
+  expect(shown).not.toMatch(/\.3mf|https?:|SuperSlicer 2/i);
   expect(shown).not.toContain("Site:");
 
   await page.locator(".failed button.copy-report").click();

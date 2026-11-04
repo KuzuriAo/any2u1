@@ -2,7 +2,7 @@
   "name": "any2u1",
   "version": "0.1.0",
   "private": true,
-  "description": "A browser extension that turns a 3MF from Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer or Flash Studio into a Snapmaker U1 file, entirely on your device.",
+  "description": "A browser extension that turns a 3MF from Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio or PrusaSlicer into a Snapmaker U1 file, entirely on your device.",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "engines": {
@@ -16,7 +16,7 @@
     "test:e2e": "npm run build && playwright test"
   },
   "dependencies": {
-    "any2orca": "0.4.1",
+    "any2orca": "0.5.0",
     "any2orca-profiles": "0.2.0"
   },
   "devDependencies": {

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { convert } from "any2orca";
+import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { defaultSettings } from "../../src/core/settings";
-import { downloadBlob, expectOnlyThese, fixture, fixturePath, launch, offerWindows, SAMPLE, savedNames, setSettings, startSite, type Session, type TestSite } from "./helpers";
+import { downloadBlob, expectOnlyThese, fixture, fixturePath, launch, offerWindows, SAMPLE, savedNames, setSettings, sha256, startSite, type Session, type TestSite } from "./helpers";
 
 let session: Session;
 let site: TestSite;
@@ -96,13 +98,23 @@ test("a file saved with no extension is caught by its type, and named sensibly",
   await session.savedFile("thing_U1.3mf");
 });
 
-test("a project from a slicer that isn't supported: says why, and doesn't offer the saved copy, which would fail the same way", async () => {
+test("a PrusaSlicer project that arrives as a download converts through the same offer", async () => {
   await site.download(session, "/prusa.3mf");
   const offer = await session.offerWindow();
   await offer.locator("button.primary").click();
-  await expect(offer.locator(".failed p")).toContainText("PrusaSlicer");
+  await expect(offer.locator(".converted .filaments li")).toHaveCount(4);
+  const saved = await session.savedFile("prusa_U1.3mf");
+  const library = await convert(fixture("prusaslicer-2.9.6-scene.3mf"), { profiles: bundledProfileSource(), highFlowHotends: false, hardenedNozzles: false });
+  expect(sha256(saved)).toBe(sha256(library.output));
+});
+
+test("a project from a slicer that isn't supported: says why, and doesn't offer the saved copy, which would fail the same way", async () => {
+  await site.download(session, "/superslicer.3mf");
+  const offer = await session.offerWindow();
+  await offer.locator("button.primary").click();
+  await expect(offer.locator(".failed p")).toContainText("SuperSlicer");
   await expect(offer.locator(".row")).toHaveCount(0);
-  expect(savedNames(session)).toEqual(["prusa.3mf"]);
+  expect(savedNames(session)).toEqual(["superslicer.3mf"]);
   // A download knows the site it came from, and the report says so.
   await offer.locator(".failed .report-text summary").click();
   await expect(offer.locator(".failed .report-text pre")).toContainText("Site: 127.0.0.1");

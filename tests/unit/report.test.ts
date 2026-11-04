@@ -12,15 +12,15 @@ describe("browserOf", () => {
 });
 
 describe("failureReport", () => {
-  const facts = { code: "unsupported_slicer", slicer: "PrusaSlicer", size: 19985, site: "site.example", browser: "Firefox 159", extensionVersion: "0.1.0", libraryVersion: "0.4.1" };
+  const facts = { code: "unsupported_slicer", slicer: "SuperSlicer", size: 19985, site: "site.example", browser: "Firefox 159", extensionVersion: "0.1.0", libraryVersion: "0.5.0" };
   it("holds the code, browser, site, size and versions", () => {
     expect(failureReport(facts)).toBe(
-      "any2u1 failure report\nError: unsupported_slicer (PrusaSlicer)\nBrowser: Firefox 159\nSite: site.example\nFile size: 19985 bytes\nany2u1 0.1.0, any2orca 0.4.1",
+      "any2u1 failure report\nError: unsupported_slicer (SuperSlicer)\nBrowser: Firefox 159\nSite: site.example\nFile size: 19985 bytes\nany2u1 0.1.0, any2orca 0.5.0",
     );
   });
   it("leaves out what isn't known", () => {
-    expect(failureReport({ browser: "Chrome 156", extensionVersion: "0.1.0", libraryVersion: "0.4.1" })).toBe(
-      "any2u1 failure report\nError: unknown\nBrowser: Chrome 156\nany2u1 0.1.0, any2orca 0.4.1",
+    expect(failureReport({ browser: "Chrome 156", extensionVersion: "0.1.0", libraryVersion: "0.5.0" })).toBe(
+      "any2u1 failure report\nError: unknown\nBrowser: Chrome 156\nany2u1 0.1.0, any2orca 0.5.0",
     );
   });
   it("can't carry a line break, markup or a long string from outside", () => {
@@ -37,6 +37,6 @@ describe("failureReport", () => {
 
 describe("diagnosticsReport", () => {
   it("is just the environment", () => {
-    expect(diagnosticsReport({ browser: "Edge 156", extensionVersion: "0.1.0", libraryVersion: "0.4.1" })).toBe("any2u1 diagnostics\nBrowser: Edge 156\nany2u1 0.1.0, any2orca 0.4.1");
+    expect(diagnosticsReport({ browser: "Edge 156", extensionVersion: "0.1.0", libraryVersion: "0.5.0" })).toBe("any2u1 diagnostics\nBrowser: Edge 156\nany2u1 0.1.0, any2orca 0.5.0");
   });
 });
