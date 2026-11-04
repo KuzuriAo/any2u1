@@ -59,7 +59,18 @@ npm run test:e2e    # builds, then runs the browser tests in Chromium
 
 The browser tests need Playwright's Chromium once (`npx playwright install chromium`) and `openssl` to make a throwaway certificate for their local test site. They check, among other things, that the manifest asks for exactly the permissions above, and that the output is byte-for-byte what the library produces for the same file and options.
 
-`dist/chrome` also serves Edge; the Firefox build differs only in its manifest. `npm run package` zips each build after building.
+`dist/chrome` also serves Edge; the Firefox build differs only in its manifest.
+
+## Building the release files
+
+```sh
+npm ci
+npm run package
+```
+
+This builds, then writes three files to `dist`: `any2u1-<version>-chrome.zip` (for Chrome and Edge), `any2u1-<version>-firefox.zip`, and `any2u1-<version>-source.zip`, the committed source these are built from.
+
+The build is reproducible. These two setups give byte-identical files: macOS on Apple silicon with Node.js 26.3.0 and npm 11.16.0, and Ubuntu 24.04 on ARM64 with Node.js 24.14.0 and npm 11.9.0, built as an ordinary user. To check a release, unpack its source zip, run the two commands above, and compare `dist/firefox` (or `dist/chrome`) with the unpacked extension. The build makes no requests beyond what `npm ci` downloads from the npm registry.
 
 ## License
 
