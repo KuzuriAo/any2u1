@@ -48,6 +48,10 @@ for (const target of ["chrome", "firefox"]) {
       }
     });
 
+    test("every file is readable by anyone rebuilding it to compare", () => {
+      for (const path of filesUnder(join(dist, target))) expect((statSync(path).mode & 0o777).toString(8), path).toBe("644");
+    });
+
     test("has no code that loads from or reports to anywhere else", () => {
       for (const path of filesUnder(join(dist, target))) {
         if (!/\.(js|html)$/.test(path)) continue;

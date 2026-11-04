@@ -4,7 +4,7 @@
  * Builds the extension from one source: dist/chrome (also for Edge) and dist/firefox.
  * The two differ only in their manifest. The catalog and the license notices ship inside.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,5 +85,16 @@ writeFileSync(join(firefox, "manifest.json"), `${JSON.stringify({
     gecko: { id: "any2u1@kuzuriao.com", strict_min_version: "140.0", data_collection_permissions: { required: ["none"] } },
   },
 }, null, 2)}\n`);
+
+// Plain modes on everything, whatever the copies inherited, so anyone rebuilding this can read and compare every file.
+function plainModes(dir) {
+  chmodSync(dir, 0o755);
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) plainModes(path);
+    else chmodSync(path, 0o644);
+  }
+}
+plainModes(dist);
 
 console.log(`Built any2u1 ${version}: dist/chrome (Chrome, Edge) and dist/firefox.`);
