@@ -76,6 +76,27 @@ async function save(result: Converted, item: HTMLLIElement): Promise<void> {
   settle(done?.state);
 }
 
+/** A color from the file, used only if it's a plain hex color. */
+function swatch(color: string): HTMLSpanElement {
+  const element = el("span", { class: "swatch", "aria-hidden": "true" });
+  if (/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(color)) element.style.backgroundColor = color;
+  return element;
+}
+
+/** Every filament as the file has it, in its order. Nothing here can change the list. */
+function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
+  if (filaments.length === 0) return null;
+  return el("ol", { class: "filaments", "aria-label": "Filaments" }, ...filaments.map((filament) => {
+    const renamed = filament.outputName !== filament.sourceName;
+    return el("li", {},
+      swatch(filament.color),
+      el("span", { class: "slot" }, String(filament.slot)),
+      el("span", { class: "type" }, filament.type),
+      el("span", { class: "fname" }, renamed ? filament.outputName : filament.outputName || "(no name)"),
+      renamed && filament.sourceName !== "" && el("span", { class: "was" }, `was ${filament.sourceName}`));
+  }));
+}
+
 function showOutcome(outcome: Outcome): boolean {
   resultsSection.hidden = false;
   if ("error" in outcome) {
@@ -85,6 +106,9 @@ function showOutcome(outcome: Outcome): boolean {
   const item = el("li", { class: "converted" },
     el("strong", {}, outcome.name),
     el("p", { class: "saved" }, `Saved to your downloads, using ${outcome.profile}${outcome.orcaVersion ? `, for Snapmaker Orca ${outcome.orcaVersion}` : ""}. `),
+    // The library's sentences can start in lower case; only the first letter changes.
+    outcome.profileNotes.length > 0 && el("ul", { class: "profile-notes" }, ...outcome.profileNotes.map((note) => el("li", {}, note.charAt(0).toUpperCase() + note.slice(1)))),
+    filamentList(outcome.filaments),
     outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, note))));
   results.append(item);
   void save(outcome, item).catch((error: unknown) => {
@@ -94,7 +118,10 @@ function showOutcome(outcome: Outcome): boolean {
   return true;
 }
 
-async function convertAndShow(name: string, bytes: Uint8Array): Promise<boolean> {
+/** "unsupported" means a readable project from a slicer the library doesn't convert: another copy of it won't help. */
+type Result = "converted" | "unsupported" | "failed";
+
+async function convertAndShow(name: string, bytes: Uint8Array): Promise<Result> {
   return inTurn(async () => {
     say(`Converting ${name}...`);
     const settings = await loadSettings();
@@ -102,7 +129,8 @@ async function convertAndShow(name: string, bytes: Uint8Array): Promise<boolean>
     const converted = outcomes.map(showOutcome).some(Boolean);
     say("");
     if (outcomes.length === 0) showOutcome({ source: name, error: "This zip has no 3MF file inside." });
-    return converted;
+    if (converted) return "converted";
+    return outcomes.length > 0 && outcomes.every((outcome) => "code" in outcome && outcome.code === "unsupported_slicer") ? "unsupported" : "failed";
   });
 }
 
@@ -114,7 +142,7 @@ async function convertPicked(files: File[]): Promise<boolean> {
       showOutcome({ source: file.name, error: "This file is too large to convert in a browser: the limit is 1 GB." });
       continue;
     }
-    if (await convertAndShow(file.name, new Uint8Array(await file.arrayBuffer()))) converted = true;
+    if ((await convertAndShow(file.name, new Uint8Array(await file.arrayBuffer()))) === "converted") converted = true;
   }
   if (files.length > MAX_FILES_AT_ONCE) say(`Only the first ${MAX_FILES_AT_ONCE} files were converted.`);
   return converted;
@@ -133,8 +161,10 @@ async function fetchAndConvert(entry: PendingDownload, url: string, size: number
     return;
   }
   setRow(entry.id, { phase: "working", message: "Converting..." });
-  if (await convertAndShow(entry.name, fetched.bytes)) await finish(entry.id);
-  else setRow(entry.id, { phase: "pick", message: "If the file was damaged on the way here, try the copy you saved." });
+  const result = await convertAndShow(entry.name, fetched.bytes);
+  // A project from another slicer would fail the same way from the saved copy, so only a damaged file gets that offer.
+  if (result === "failed") setRow(entry.id, { phase: "pick", message: "If the file was damaged on the way here, try the copy you saved." });
+  else await finish(entry.id);
 }
 
 /** Yes on a waiting download whose file has a web address. No prompt yet: many servers allow this with no access at all. */

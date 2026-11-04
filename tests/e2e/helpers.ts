@@ -130,6 +130,8 @@ export async function startSite(sample: Buffer = fixture(SAMPLE)): Promise<TestS
     if (path === "/type-only/thing") return send(sample, "model/3mf", open);
     if (path === "/bundle.zip") return send(zip, "application/zip", open);
     if (path === "/prusa.3mf") return send(fixture("prusaslicer-2.9.6.3mf"), "model/3mf", open);
+    // Starts like a zip, so the fetch accepts it, but isn't one.
+    if (path === "/damaged.3mf") return send(Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 1)]), "model/3mf", open);
     // The first answer is the real file; a second look gets a login page or something else.
     if (path === "/wall/desk.3mf") return seen === 1 ? send(sample, "model/3mf", open) : send("<html>Log in</html>", "text/html", open);
     if (path === "/changed/desk.3mf") return send(seen === 1 ? sample : Buffer.concat([sample, Buffer.from("x")]), "model/3mf", open);

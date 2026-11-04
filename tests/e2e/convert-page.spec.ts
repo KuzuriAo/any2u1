@@ -2,7 +2,7 @@
 import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
-import { strToU8, zipSync } from "fflate";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { expectOnlyThese, fixture, fixturePath, launch, SAMPLE, savedNames, sha256, type Session } from "./helpers";
 
 let session: Session;
@@ -172,4 +172,48 @@ test("a file dropped anywhere on the page converts, and the page stays", async (
   }, base64);
   await expect(page.locator(".converted strong")).toHaveText("dropped_U1.3mf");
   expect(page.url()).toBe(url);
+});
+
+test("every filament is listed as the file has it, in order, with what each is named now", async () => {
+  const page = await session.open("convert.html");
+  await page.locator("summary").click();
+  await page.selectOption("#filament-names", "snapmaker");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+  const rows = page.locator(".converted .filaments li");
+  await expect(rows).toHaveCount(library.report.filaments.length);
+  for (const [index, filament] of library.report.filaments.entries()) {
+    const row = rows.nth(index);
+    await expect(row.locator(".slot")).toHaveText(String(filament.slot));
+    await expect(row.locator(".fname")).toHaveText(filament.outputName);
+    if (filament.outputName !== filament.sourceName) await expect(row.locator(".was")).toHaveText(`was ${filament.sourceName}`);
+  }
+  // The scene's four filaments, renamed but kept in order: nothing dropped or merged.
+  expect(library.report.filaments.map((filament) => filament.slot)).toEqual([1, 2, 3, 4]);
+});
+
+test("a match that wasn't plain says why under the profile, and a plain one says nothing", async () => {
+  const entries = unzipSync(fixture(SAMPLE));
+  const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown>;
+  // A 0.5 mm nozzle has no U1 profile, so the 0.4 one is used, and the report says why.
+  entries["Metadata/project_settings.config"] = strToU8(JSON.stringify({ ...settings, nozzle_diameter: ["0.5"] }));
+  const variant = Buffer.from(zipSync(entries));
+  const library = await convert(variant, { profiles: bundledProfileSource() });
+  expect(library.report.profileNotes.length).toBeGreaterThan(0);
+
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", { name: "half-mm.3mf", mimeType: "model/3mf", buffer: variant });
+  await expect(page.locator(".converted .profile-notes li")).toHaveCount(library.report.profileNotes.length);
+  await expect(page.locator(".converted .profile-notes li").first()).toContainText("0.5mm nozzle");
+
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted")).toHaveCount(2);
+  await expect(page.locator(".converted").nth(1).locator(".profile-notes")).toHaveCount(0);
+});
+
+test("a filament color that isn't a plain hex color is never put into the page's styles", async () => {
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  const styles = await page.locator(".converted .swatch").evaluateAll((swatches) => swatches.map((s) => (s as HTMLElement).style.cssText));
+  for (const style of styles) expect(style === "" || /^background-color: rgb\(\d+, \d+, \d+\);$/.test(style), style).toBe(true);
 });

@@ -4,6 +4,7 @@
  * profile catalog is inside the extension, so converting makes no request beyond the extension's own files.
  */
 import { createConverterWorker, type ConverterWorker } from "any2orca/worker";
+import type { ReportFilament } from "any2orca";
 import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
 import { is3mfName, outputName } from "../core/names";
@@ -15,10 +16,15 @@ export type Converted = {
   name: string;
   output: Uint8Array;
   profile: string;
+  /** Why the profile was matched, when the match wasn't plain. */
+  profileNotes: string[];
   orcaVersion: string | undefined;
+  /** Every filament, in the file's order, as the converted file has it. Never reordered, merged or dropped. */
+  filaments: ReportFilament[];
   notes: string[];
 };
-export type Failed = { source: string; error: string };
+/** `code` is the library's error code when it gave one, e.g. `unsupported_slicer`. */
+export type Failed = { source: string; error: string; code?: string };
 export type Outcome = Converted | Failed;
 
 const CRASHED = "The conversion stopped, most likely because the browser ran out of memory for this file.";
@@ -58,8 +64,9 @@ export async function listReleases(): Promise<string[]> {
   return listing.releases.map((release) => release.version);
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong.";
+function failure(source: string, error: unknown): Failed {
+  const code = (error as { code?: unknown } | null)?.code;
+  return { source, error: error instanceof Error ? error.message : "Something went wrong.", ...(typeof code === "string" ? { code } : {}) };
 }
 
 /** Reports the file's own story first, then what the library had to say. */
@@ -82,6 +89,8 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
       name: outputName(source),
       output,
       profile: report.profile.displayName,
+      profileNotes: report.profileNotes,
+      filaments: report.filaments,
       orcaVersion: activeRelease(convert.snapmakerOrcaVersion, releases),
       notes: notesFor(inspection.printerModel, inspection.sourceVendor, report.warnings, report.filamentComplianceFallback, report.filamentComplianceUnchanged),
     };
@@ -105,12 +114,12 @@ export async function convertFile(name: string, bytes: Uint8Array, convert: Conv
       try {
         outcomes.push(await convertOne(entry.name, entry.bytes, convert, releases));
       } catch (error) {
-        outcomes.push({ source: entry.name, error: messageOf(error) });
+        outcomes.push(failure(entry.name, error));
         if (error instanceof Error && error.message === CRASHED) break;
       }
     }
     return outcomes;
   } catch (error) {
-    return [{ source: name, error: messageOf(error) }];
+    return [failure(name, error)];
   }
 }

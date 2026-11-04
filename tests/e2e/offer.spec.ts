@@ -96,13 +96,21 @@ test("a file saved with no extension is caught by its type, and named sensibly",
   await session.savedFile("thing_U1.3mf");
 });
 
-test("a project that can't be converted: says why, and doesn't lose the row", async () => {
+test("a project from a slicer that isn't supported: says why, and doesn't offer the saved copy, which would fail the same way", async () => {
   await site.download(session, "/prusa.3mf");
   const offer = await session.offerWindow();
   await offer.locator("button.primary").click();
   await expect(offer.locator(".failed p")).toContainText("PrusaSlicer");
-  await expect(offer.locator(".row button.pick")).toBeVisible();
+  await expect(offer.locator(".row")).toHaveCount(0);
   expect(savedNames(session)).toEqual(["prusa.3mf"]);
+});
+
+test("a damaged file fetched from the site: offers the saved copy, in case it was damaged on the way", async () => {
+  await site.download(session, "/damaged.3mf");
+  const offer = await session.offerWindow();
+  await offer.locator("button.primary").click();
+  await expect(offer.locator(".failed p")).not.toBeEmpty();
+  await expect(offer.locator(".row button.pick")).toBeVisible();
 });
 
 test("a zip download gets no offer", async () => {

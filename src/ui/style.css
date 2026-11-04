@@ -59,6 +59,14 @@ button.link:hover { color: var(--ink); }
 .failed { border-color: var(--bad); }
 .failed p { color: var(--bad); }
 .saved { color: var(--muted); font-size: 0.9rem; }
+.profile-notes { margin: 0.3rem 0 0; padding-left: 1.1rem; font-size: 0.87rem; color: var(--muted); }
+.filaments { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.25rem; font-size: 0.87rem; }
+.filaments li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.5rem; }
+.swatch { width: 0.95rem; height: 0.95rem; border-radius: 3px; border: 1px solid var(--line); flex: none; }
+.slot { color: var(--muted); min-width: 1.2rem; }
+.type { font-weight: 600; }
+.fname { overflow-wrap: anywhere; }
+.was { color: var(--muted); overflow-wrap: anywhere; }
 .notes { margin: 0.5rem 0 0; padding-left: 1.1rem; font-size: 0.87rem; }
 
 .drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 1.25rem; text-align: center; }
