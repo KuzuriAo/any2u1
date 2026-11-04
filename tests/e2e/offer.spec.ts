@@ -103,6 +103,9 @@ test("a project from a slicer that isn't supported: says why, and doesn't offer 
   await expect(offer.locator(".failed p")).toContainText("PrusaSlicer");
   await expect(offer.locator(".row")).toHaveCount(0);
   expect(savedNames(session)).toEqual(["prusa.3mf"]);
+  // A download knows the site it came from, and the report says so.
+  await offer.locator(".failed .report-text summary").click();
+  await expect(offer.locator(".failed .report-text pre")).toContainText("Site: 127.0.0.1");
 });
 
 test("a damaged file fetched from the site: offers the saved copy, in case it was damaged on the way", async () => {

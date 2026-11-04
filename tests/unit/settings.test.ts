@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from "vitest";
-import { convertOptions, defaultSettings, isQuiet, parseSettings } from "../../src/core/settings";
+import { convertOptions, defaultSettings, describePrinter, isQuiet, parseSettings } from "../../src/core/settings";
 
 describe("parseSettings", () => {
   it("defaults to on, with the small window", () => {
@@ -50,5 +50,20 @@ describe("isQuiet", () => {
     expect(isQuiet(["cdn.example", "site.example"], ["site.example"])).toBe(true);
     expect(isQuiet(["other.store.example"], ["bucket.store.example"])).toBe(false);
     expect(isQuiet([], ["site.example"])).toBe(false);
+  });
+});
+
+describe("high-flow only where the nozzle supports it", () => {
+  const convert = { ...defaultSettings().convert, highFlowToolheads: [true, false, true, false] as [boolean, boolean, boolean, boolean], hardenedNozzles: true };
+  it("is sent when the nozzle supports it, and left out when it doesn't", () => {
+    expect(convertOptions(convert, ["2.4.1"], true).highFlowHotends).toEqual([true, false, true, false]);
+    expect(convertOptions(convert, ["2.4.1"], false).highFlowHotends).toBe(false);
+    expect(convertOptions(convert, ["2.4.1"]).highFlowHotends).toEqual([true, false, true, false]);
+  });
+  it("is described only where it applied", () => {
+    expect(describePrinter(convert, "0.4", true)).toEqual(["high-flow on T1, T3", "hardened steel nozzles"]);
+    expect(describePrinter(convert, "0.6", false)).toEqual([]);
+    expect(describePrinter(convert, null, true)).toEqual(["high-flow on T1, T3", "hardened steel nozzles"]);
+    expect(describePrinter(defaultSettings().convert, "0.4", true)).toEqual([]);
   });
 });

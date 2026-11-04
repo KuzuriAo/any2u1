@@ -61,15 +61,29 @@ export function parseSettings(stored: unknown): Settings {
   };
 }
 
-/** What the library is asked for, given the releases its catalog holds. A saved release that's gone falls back to the newest. */
-export function convertOptions(convert: ConvertSettings, releases: readonly string[]) {
+/**
+ * What the library is asked for, given the releases its catalog holds. A saved release that's gone falls back to the
+ * newest. High-flow is sent only where the file's nozzle has a high-flow option, as the web app does: the library would
+ * ignore it with a warning, which would show on every file of another nozzle size.
+ */
+export function convertOptions(convert: ConvertSettings, releases: readonly string[], highFlowSupported = true) {
   const version = convert.snapmakerOrcaVersion;
   return {
     ...(version !== null && releases.includes(version) ? { snapmakerOrcaVersion: version } : {}),
-    highFlowHotends: convert.highFlowToolheads.some(Boolean) ? [...convert.highFlowToolheads] : false,
+    highFlowHotends: highFlowSupported && convert.highFlowToolheads.some(Boolean) ? [...convert.highFlowToolheads] : false,
     hardenedNozzles: convert.hardenedNozzles,
     ...(convert.filamentNames === "original" ? {} : { filamentComplianceMode: convert.filamentNames }),
   };
+}
+
+/** The printer options a file was made with, for its result: only those that applied to its nozzle. */
+export function describePrinter(convert: ConvertSettings, nozzle: string | null, highFlowSupported: boolean): string[] {
+  const toolheads = convert.highFlowToolheads.flatMap((on, index) => (on ? [`T${index + 1}`] : []));
+  return [
+    ...(highFlowSupported && toolheads.length > 0 ? [`high-flow on ${toolheads.join(", ")}`] : []),
+    // The library applies this to the 0.4 mm profile only.
+    ...(convert.hardenedNozzles && (nozzle ?? "0.4") === "0.4" ? ["hardened steel nozzles"] : []),
+  ];
 }
 
 /** Exact hosts only, so that quieting one bucket on a storage provider doesn't quiet every site using that provider. */

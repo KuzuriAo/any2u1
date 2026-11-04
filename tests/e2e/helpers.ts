@@ -17,6 +17,7 @@ const fixtures = fileURLToPath(new URL("../fixtures/", import.meta.url));
 export const fixturePath = (name: string) => join(fixtures, name);
 export const fixture = (name: string) => readFileSync(fixturePath(name));
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
+export const libraryVersion = (JSON.parse(readFileSync(fileURLToPath(new URL("../../node_modules/any2orca/package.json", import.meta.url)), "utf-8")) as { version: string }).version;
 export const SAMPLE = "bambu-studio-2.8.4.57-beta.3mf";
 
 /** A real browser with the built extension loaded, saving downloads under their real names. */

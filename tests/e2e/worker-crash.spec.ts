@@ -52,6 +52,8 @@ test("a worker that fails mid-conversion: the file gets a message, and the next 
   expect(await failLatestWorker(page)).toBe(1);
   await expect(page.locator(".failed strong")).toHaveText("stuck.3mf");
   await expect(page.locator(".failed p")).toContainText("ran out of memory");
+  await page.locator(".failed .report-text summary").click();
+  await expect(page.locator(".failed .report-text pre")).toContainText("Error: worker_stopped");
 
   await page.evaluate(() => ((window as unknown as { swallow: boolean }).swallow = false));
   await page.setInputFiles("#file", fixturePath(SAMPLE));

@@ -9,7 +9,7 @@ import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
 import { is3mfName, outputName } from "../core/names";
 import { activeRelease } from "../core/releases";
-import { convertOptions, type ConvertSettings } from "../core/settings";
+import { convertOptions, describePrinter, type ConvertSettings } from "../core/settings";
 
 export type Converted = {
   source: string;
@@ -21,10 +21,14 @@ export type Converted = {
   orcaVersion: string | undefined;
   /** Every filament, in the file's order, as the converted file has it. Never reordered, merged or dropped. */
   filaments: ReportFilament[];
+  /** The printer options that applied to this file, e.g. "high-flow on T1". */
+  printer: string[];
+  /** A file that was set up for the U1 before it got here: said first, so nobody thinks nothing happened. */
+  alreadyU1: boolean;
   notes: string[];
 };
-/** `code` is the library's error code when it gave one, e.g. `unsupported_slicer`. */
-export type Failed = { source: string; error: string; code?: string };
+/** `code` is the library's error code, or this extension's own for a failure it found itself. `slicer` goes with `unsupported_slicer`. */
+export type Failed = { source: string; error: string; code?: string; slicer?: string; size?: number };
 export type Outcome = Converted | Failed;
 
 const CRASHED = "The conversion stopped, most likely because the browser ran out of memory for this file.";
@@ -64,16 +68,23 @@ export async function listReleases(): Promise<string[]> {
   return listing.releases.map((release) => release.version);
 }
 
-function failure(source: string, error: unknown): Failed {
-  const code = (error as { code?: unknown } | null)?.code;
-  return { source, error: error instanceof Error ? error.message : "Something went wrong.", ...(typeof code === "string" ? { code } : {}) };
+function failure(source: string, error: unknown, size: number): Failed {
+  const { code, slicer } = (error ?? {}) as { code?: unknown; slicer?: unknown };
+  const message = error instanceof Error ? error.message : "Something went wrong.";
+  return {
+    source,
+    error: message,
+    size,
+    code: typeof code === "string" ? code : message === CRASHED ? "worker_stopped" : "unknown",
+    ...(typeof slicer === "string" ? { slicer } : {}),
+  };
 }
 
-/** Reports the file's own story first, then what the library had to say. */
-function notesFor(printerModel: string | null, sourceVendor: string, warnings: readonly string[], fallback: readonly string[] = [], unchanged: readonly string[] = []): string[] {
-  const notes: string[] = [];
-  if (sourceVendor === "snapmaker" && /\bU1\b/.test(printerModel ?? "")) notes.push("This file was already set up for the Snapmaker U1.");
-  notes.push(...warnings);
+const isU1File = (printerModel: string | null, sourceVendor: string) => sourceVendor === "snapmaker" && /\bU1\b/.test(printerModel ?? "");
+
+/** What the library had to say. */
+function notesFor(warnings: readonly string[], fallback: readonly string[] = [], unchanged: readonly string[] = []): string[] {
+  const notes: string[] = [...warnings];
   if (fallback.length > 0) notes.push(`Snapmaker makes no preset for ${fallback.join(", ")} at this nozzle size, so it uses Generic.`);
   if (unchanged.length > 0) notes.push(`No Snapmaker or Generic preset fits ${unchanged.join(", ")} at this nozzle size, so its name stays as the creator had it. Snapmaker Space may refuse this file.`);
   return notes;
@@ -83,7 +94,12 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
   const converter = start();
   const { project, inspection } = await guarded(converter.open(bytes, { transfer: true }));
   try {
-    const { output, report } = await guarded(project.convert(convertOptions(convert, releases)));
+    const release = activeRelease(convert.snapmakerOrcaVersion, releases);
+    // The catalog says which nozzle sizes have a high-flow option; the same check the web app makes.
+    const nozzle = inspection.matchNozzleDiameter ?? "0.4";
+    const { profiles } = await guarded(converter.listProfiles({ nozzleDiameter: nozzle, ...(release ? { snapmakerOrcaVersion: release } : {}) }));
+    const highFlowSupported = profiles.some((profile) => profile.highFlowSupported);
+    const { output, report } = await guarded(project.convert(convertOptions(convert, releases, highFlowSupported)));
     return {
       source,
       name: outputName(source),
@@ -91,8 +107,10 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
       profile: report.profile.displayName,
       profileNotes: report.profileNotes,
       filaments: report.filaments,
-      orcaVersion: activeRelease(convert.snapmakerOrcaVersion, releases),
-      notes: notesFor(inspection.printerModel, inspection.sourceVendor, report.warnings, report.filamentComplianceFallback, report.filamentComplianceUnchanged),
+      orcaVersion: release,
+      printer: describePrinter(convert, nozzle, highFlowSupported),
+      alreadyU1: isU1File(inspection.printerModel, inspection.sourceVendor),
+      notes: notesFor(report.warnings, report.filamentComplianceFallback, report.filamentComplianceUnchanged),
     };
   } finally {
     await guarded(project.close()).catch(() => {});
@@ -101,25 +119,28 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
 
 /** A 3MF, or a zip of them: one outcome per 3MF. One bad file doesn't stop the rest of a zip. */
 export async function convertFile(name: string, bytes: Uint8Array, convert: ConvertSettings): Promise<Outcome[]> {
-  if (bytes.byteLength > MAX_INPUT_BYTES) return [{ source: name, error: "This file is too large to convert in a browser: the limit is 1 GB." }];
+  // The worker takes over a file's memory, which leaves its length at 0, so sizes are read before the hand-over.
+  const size = bytes.byteLength;
+  if (size > MAX_INPUT_BYTES) return [{ source: name, error: "This file is too large to convert in a browser: the limit is 1 GB.", code: "input_too_large", size }];
   try {
     const releases = await listReleases();
     // Unpacking twice is wasted work on a large 3MF, so only a file that may be a zip is checked for one.
     const nested = is3mfName(name) ? null : await guarded(start().unwrapBundle(bytes));
     if (nested === null) return [await convertOne(name, bytes, convert, releases)];
     const projects = nested.filter((entry) => !entry.name.startsWith("._"));
-    if (projects.length > MAX_FILES_IN_ZIP) return [{ source: name, error: `This zip holds ${projects.length} 3MF files; the limit is ${MAX_FILES_IN_ZIP}.` }];
+    if (projects.length > MAX_FILES_IN_ZIP) return [{ source: name, error: `This zip holds ${projects.length} 3MF files; the limit is ${MAX_FILES_IN_ZIP}.`, code: "zip_too_many_files", size }];
     const outcomes: Outcome[] = [];
     for (const entry of projects) {
+      const entrySize = entry.bytes.byteLength;
       try {
         outcomes.push(await convertOne(entry.name, entry.bytes, convert, releases));
       } catch (error) {
-        outcomes.push(failure(entry.name, error));
+        outcomes.push(failure(entry.name, error, entrySize));
         if (error instanceof Error && error.message === CRASHED) break;
       }
     }
     return outcomes;
   } catch (error) {
-    return [failure(name, error)];
+    return [failure(name, error, size)];
   }
 }

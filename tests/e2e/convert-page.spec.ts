@@ -3,6 +3,7 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { libraryVersion } from "./helpers";
 import { expectOnlyThese, fixture, fixturePath, launch, SAMPLE, savedNames, sha256, type Session } from "./helpers";
 
 let session: Session;
@@ -157,7 +158,10 @@ test("a file already set up for the U1 says so", async () => {
   const page = await session.open("convert.html");
   const once = await convert(fixture(SAMPLE), { profiles: bundledProfileSource() });
   await page.setInputFiles("#file", { name: "already_U1.3mf", mimeType: "model/3mf", buffer: Buffer.from(once.output) });
-  await expect(page.locator(".converted .notes")).toContainText("already set up for the Snapmaker U1");
+  // The first thing under the name, above where it was saved, so nobody thinks nothing happened.
+  await expect(page.locator(".converted > *").nth(1)).toHaveClass("already");
+  await expect(page.locator(".converted .already")).toContainText("already set up for the Snapmaker U1");
+  await expect(page.locator(".converted > *").nth(2)).toHaveClass("saved");
 });
 
 test("a file dropped anywhere on the page converts, and the page stays", async () => {
@@ -216,4 +220,86 @@ test("a filament color that isn't a plain hex color is never put into the page's
   await page.setInputFiles("#file", fixturePath(SAMPLE));
   const styles = await page.locator(".converted .swatch").evaluateAll((swatches) => swatches.map((s) => (s as HTMLElement).style.cssText));
   for (const style of styles) expect(style === "" || /^background-color: rgb\(\d+, \d+, \d+\);$/.test(style), style).toBe(true);
+});
+
+function nozzleVariant(nozzle: string, layer: string, tier: string): Buffer {
+  const entries = unzipSync(fixture(SAMPLE));
+  const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown>;
+  entries["Metadata/project_settings.config"] = strToU8(JSON.stringify({ ...settings, nozzle_diameter: [nozzle], layer_height: layer, print_settings_id: tier }));
+  return Buffer.from(zipSync(entries));
+}
+
+test("high-flow reaches a 0.4 file, is named on the result, and gives the same bytes as the library", async () => {
+  const page = await session.open("convert.html");
+  await page.locator("summary").click();
+  await page.locator("#orca-version option").first().waitFor({ state: "attached" });
+  await page.check("#high-flow-1");
+  await page.check("#hardened");
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { hardenedNozzles?: boolean } } | undefined)?.convert?.hardenedNozzles)).toBe(true);
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted .saved")).toContainText("high-flow on T1, hardened steel nozzles");
+  const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), highFlowHotends: [true, false, false, false], hardenedNozzles: true });
+  expect(sha256(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf")))).toBe(sha256(library.output));
+});
+
+test("on a nozzle with no high-flow option, it isn't sent: no warning, and the result doesn't claim it", async () => {
+  const variant = nozzleVariant("0.6", "0.3", "0.30mm Standard @BBL X1C 0.6 nozzle");
+  const page = await session.open("convert.html");
+  await page.locator("summary").click();
+  await page.locator("#orca-version option").first().waitFor({ state: "attached" });
+  await page.check("#high-flow-1");
+  await page.check("#hardened");
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { hardenedNozzles?: boolean } } | undefined)?.convert?.hardenedNozzles)).toBe(true);
+  await page.setInputFiles("#file", { name: "six.3mf", mimeType: "model/3mf", buffer: variant });
+  await expect(page.locator(".converted .saved")).toContainText("0.6 nozzle");
+  await expect(page.locator(".converted .saved")).not.toContainText("high-flow");
+  await expect(page.locator(".converted .saved")).not.toContainText("hardened");
+  await expect(page.locator(".converted .notes")).toHaveCount(0);
+});
+
+/** An extension page's clipboard can't be granted to a test, so this records what's written and lets the real write run. */
+async function openWithClipboardSpy(path: string) {
+  const page = await session.context.newPage();
+  await page.addInitScript(() => {
+    const spy = window as unknown as { written: string[] };
+    spy.written = [];
+    const real = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = (text: string) => {
+      spy.written.push(text);
+      return real(text);
+    };
+  });
+  await page.goto(`${session.origin}/${path}`);
+  return page;
+}
+const written = (page: Awaited<ReturnType<typeof openWithClipboardSpy>>) => page.evaluate(() => (window as unknown as { written: string[] }).written);
+
+test("a failure offers a report that names no file or address, and copies it", async () => {
+  const page = await openWithClipboardSpy("convert.html");
+  const prusa = fixture("prusaslicer-2.9.6.3mf");
+  await page.setInputFiles("#file", { name: "secret-model-name.3mf", mimeType: "model/3mf", buffer: prusa });
+  const text = page.locator(".failed .report-text pre");
+  await expect(page.locator(".failed strong")).toHaveText("secret-model-name.3mf");
+  await page.locator(".failed .report-text summary").click();
+  await expect(text).toContainText("Error: unsupported_slicer (PrusaSlicer)");
+  await expect(text).toContainText(`File size: ${prusa.byteLength} bytes`);
+  await expect(text).toContainText("Browser: Chrome");
+  await expect(text).toContainText(`any2orca ${libraryVersion}`);
+  const shown = (await text.textContent()) ?? "";
+  expect(shown).not.toContain("secret-model-name");
+  expect(shown).not.toMatch(/\.3mf|https?:|PrusaSlicer 2/i);
+  expect(shown).not.toContain("Site:");
+
+  await page.locator(".failed button.copy-report").click();
+  await expect(page.locator(".failed button.copy-report")).toHaveText("Copied");
+  expect(await written(page)).toEqual([shown]);
+});
+
+test("the settings page copies the versions, and says what a download manager does", async () => {
+  const page = await openWithClipboardSpy("settings.html");
+  await expect(page.locator("main")).toContainText("download manager that takes over your downloads");
+  await page.locator("#diagnostics .copy-report").click();
+  await expect(page.locator("#diagnostics .copy-report")).toHaveText("Copied");
+  const [copied] = await written(page);
+  expect(copied).toMatch(/^any2u1 diagnostics\nBrowser: Chrome \d+\nany2u1 0\.1\.0, any2orca \d+\.\d+\.\d+$/);
 });

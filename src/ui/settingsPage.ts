@@ -5,6 +5,8 @@ import { button, el, need } from "./dom";
 import { renderOptions } from "./optionsForm";
 import { showReleaseNotice } from "./releaseNotice";
 import { loadSettings, onSettingsChanged, updateSettings } from "./settingsStore";
+import { diagnosticsReport } from "../core/report";
+import { environment, reportBlock } from "./report";
 import type { Settings } from "../core/settings";
 
 const enabled = need<HTMLInputElement>("#enabled");
@@ -60,6 +62,7 @@ onSettingsChanged((settings) => {
 api.permissions.onRemoved?.addListener(() => void drawHosts());
 api.permissions.onAdded?.addListener(() => void drawHosts());
 
+need("#diagnostics").append(reportBlock(diagnosticsReport(environment()), "Copy the versions"));
 need("#version").textContent = `any2u1 ${api.runtime.getManifest().version}`;
 void draw();
 void drawHosts();

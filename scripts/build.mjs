@@ -64,7 +64,7 @@ const base = {
   manifest_version: 3,
   name: "any2u1",
   version,
-  description: "Turn a 3MF you download into a Snapmaker U1 file, right on your device. Nothing is uploaded.",
+  description: "Turn a 3MF from any site into a Snapmaker U1 file, on your device. Bambu Studio, Creality Print, Anycubic, Elegoo, Flash Studio.",
   permissions: ["downloads", "storage"],
   optional_host_permissions: ["https://*/*"],
   action: {

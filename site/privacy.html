@@ -17,20 +17,29 @@
     <main>
       <h1>Privacy policy</h1>
       <p class="lead">Short version: your files are converted on your device and never leave it. I collect nothing.</p>
-      <p>This covers the any2u1 browser extension, version 0.1.0 and later. Last updated November 3, 2026.</p>
+      <p>This covers the any2u1 browser extension, version 0.1.0 and later. Last updated November 4, 2026.</p>
 
-      <h2>Your files</h2>
-      <p>The extension reads a 3MF file, or a zip of them, only when you ask it to convert one. It converts the file inside your browser and saves the result to your downloads folder. The file, and anything in it, is never sent anywhere.</p>
+      <h2>What it handles</h2>
+      <p>Everything here stays on your device, with one exception: the plain request, described below, that fetches the file you chose to convert.</p>
+      <div class="table">
+        <table>
+          <tr><th>Data</th><th>Why</th><th>Kept</th><th>Sent anywhere</th></tr>
+          <tr><td>Your 3MF file, or a zip of them</td><td>To convert it, only when you ask</td><td>Only in memory while converting</td><td>No</td></tr>
+          <tr><td>The converted file</td><td>It's the result</td><td>Saved to your downloads folder, where you can delete it</td><td>No</td></tr>
+          <tr><td>A waiting download's file name, site name, download number and time</td><td>To offer a conversion and show the right row</td><td>In storage the browser clears when it closes, or when you answer</td><td>No</td></tr>
+          <tr><td>The download's address</td><td>To fetch the file again when you click convert</td><td>Not kept: looked up from the browser at that moment</td><td>Only to the site the file came from (below)</td></tr>
+          <tr><td>Your settings: offers on or off, how they're shown, conversion options</td><td>To work the way you chose</td><td>In the extension's storage until you remove the extension</td><td>No</td></tr>
+          <tr><td>Sites you turned offers off for</td><td>To skip them</td><td>In the extension's storage</td><td>No</td></tr>
+          <tr><td>The Snapmaker Orca versions it last saw, and a note about a new one</td><td>To tell you when an update adds a version</td><td>In the extension's storage until you dismiss the note</td><td>No</td></tr>
+          <tr><td>A failure report</td><td>For a bug report, if you choose to share one</td><td>Made only when something fails, shown on screen, not stored</td><td>Only if you copy it and paste it somewhere yourself</td></tr>
+        </table>
+      </div>
 
-      <h2>Requests it makes</h2>
+      <h2>The one request</h2>
       <p>Besides loading its own files, the extension makes one kind of request, and only when you click to convert a download: it fetches that one file again, from the address your browser downloaded it from. It sends no cookies and no referrer with it. It doesn't fetch anything else, and it doesn't contact me or anyone else. It has no analytics, telemetry, advertising or accounts.</p>
 
-      <h2>What it keeps on your device</h2>
-      <ul>
-        <li><strong>Your settings,</strong> in the browser's extension storage: whether offers are on, how they're shown, the sites you turned them off for, your conversion options, the list of Snapmaker Orca versions it last saw, and a note about a new version until you dismiss it.</li>
-        <li><strong>Downloads waiting for an answer:</strong> each one's file name, the name of the site it came from, the number the browser gave the download, and when it finished, plus which window shows them, in storage the browser clears when it closes. The download's address isn't kept, since a signed link can work like a password; the extension looks it up from the browser when you click.</li>
-      </ul>
-      <p>None of this leaves your device. Removing the extension removes it.</p>
+      <h2>A failure report</h2>
+      <p>When a conversion fails, the page offers a report you can copy. It holds the error's code, the browser and its major version, the site's name if the download came from one, the file's size in bytes, and the versions of the extension and the library. It holds no file name, no address, and no error text, since any of them can identify a model. You can read the report on screen before you copy it.</p>
 
       <h2>Site access you allow</h2>
       <p>If a site's server won't let the extension read a file, the extension can ask your permission for that one host. It uses that access only to fetch a file you chose to convert. The extension's settings page lists every host you allowed, and removes one. Some browsers remember an approval until the extension is removed.</p>

@@ -10,6 +10,8 @@ import { convertFile, listReleases, type Converted, type Outcome } from "./engin
 import { button, el, need } from "./dom";
 import { renderOptions } from "./optionsForm";
 import { pickFiles } from "./picker";
+import { failureReport } from "../core/report";
+import { environment, reportBlock } from "./report";
 import { showReleaseNotice } from "./releaseNotice";
 import { loadSettings, onSettingsChanged, updateSettings } from "./settingsStore";
 
@@ -97,15 +99,17 @@ function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
   }));
 }
 
-function showOutcome(outcome: Outcome): boolean {
+function showOutcome(outcome: Outcome, site: string | null = null): boolean {
   resultsSection.hidden = false;
   if ("error" in outcome) {
-    results.append(el("li", { class: "failed" }, el("strong", {}, outcome.source), el("p", {}, outcome.error)));
+    const report = failureReport({ code: outcome.code, slicer: outcome.slicer, size: outcome.size, site, ...environment() });
+    results.append(el("li", { class: "failed" }, el("strong", {}, outcome.source), el("p", {}, outcome.error), reportBlock(report, "Copy a report")));
     return false;
   }
   const item = el("li", { class: "converted" },
     el("strong", {}, outcome.name),
-    el("p", { class: "saved" }, `Saved to your downloads, using ${outcome.profile}${outcome.orcaVersion ? `, for Snapmaker Orca ${outcome.orcaVersion}` : ""}. `),
+    outcome.alreadyU1 && el("p", { class: "already" }, "This file was already set up for the Snapmaker U1. It has still been converted, and saved as a new file."),
+    el("p", { class: "saved" }, `Saved to your downloads, using ${outcome.profile}${[outcome.orcaVersion ? `for Snapmaker Orca ${outcome.orcaVersion}` : "", ...outcome.printer].filter(Boolean).map((part) => `, ${part}`).join("")}. `),
     // The library's sentences can start in lower case; only the first letter changes.
     outcome.profileNotes.length > 0 && el("ul", { class: "profile-notes" }, ...outcome.profileNotes.map((note) => el("li", {}, note.charAt(0).toUpperCase() + note.slice(1)))),
     filamentList(outcome.filaments),
@@ -121,28 +125,29 @@ function showOutcome(outcome: Outcome): boolean {
 /** "unsupported" means a readable project from a slicer the library doesn't convert: another copy of it won't help. */
 type Result = "converted" | "unsupported" | "failed";
 
-async function convertAndShow(name: string, bytes: Uint8Array): Promise<Result> {
+async function convertAndShow(name: string, bytes: Uint8Array, site: string | null = null): Promise<Result> {
+  const size = bytes.byteLength;
   return inTurn(async () => {
     say(`Converting ${name}...`);
     const settings = await loadSettings();
     const outcomes = await convertFile(name, bytes, settings.convert);
-    const converted = outcomes.map(showOutcome).some(Boolean);
+    const converted = outcomes.map((outcome) => showOutcome(outcome, site)).some(Boolean);
     say("");
-    if (outcomes.length === 0) showOutcome({ source: name, error: "This zip has no 3MF file inside." });
+    if (outcomes.length === 0) showOutcome({ source: name, error: "This zip has no 3MF file inside.", code: "zip_no_3mf", size }, site);
     if (converted) return "converted";
     return outcomes.length > 0 && outcomes.every((outcome) => "code" in outcome && outcome.code === "unsupported_slicer") ? "unsupported" : "failed";
   });
 }
 
 /** Files handed over by the user. Sizes are checked before a large file is read into memory. */
-async function convertPicked(files: File[]): Promise<boolean> {
+async function convertPicked(files: File[], site: string | null = null): Promise<boolean> {
   let converted = false;
   for (const file of files.slice(0, MAX_FILES_AT_ONCE)) {
     if (file.size > MAX_INPUT_BYTES) {
-      showOutcome({ source: file.name, error: "This file is too large to convert in a browser: the limit is 1 GB." });
+      showOutcome({ source: file.name, error: "This file is too large to convert in a browser: the limit is 1 GB.", code: "input_too_large", size: file.size }, site);
       continue;
     }
-    if ((await convertAndShow(file.name, new Uint8Array(await file.arrayBuffer()))) === "converted") converted = true;
+    if ((await convertAndShow(file.name, new Uint8Array(await file.arrayBuffer()), site)) === "converted") converted = true;
   }
   if (files.length > MAX_FILES_AT_ONCE) say(`Only the first ${MAX_FILES_AT_ONCE} files were converted.`);
   return converted;
@@ -161,7 +166,7 @@ async function fetchAndConvert(entry: PendingDownload, url: string, size: number
     return;
   }
   setRow(entry.id, { phase: "working", message: "Converting..." });
-  const result = await convertAndShow(entry.name, fetched.bytes);
+  const result = await convertAndShow(entry.name, fetched.bytes, entry.site);
   // A project from another slicer would fail the same way from the saved copy, so only a damaged file gets that offer.
   if (result === "failed") setRow(entry.id, { phase: "pick", message: "If the file was damaged on the way here, try the copy you saved." });
   else await finish(entry.id);
@@ -205,7 +210,7 @@ function pickForRow(entry: PendingDownload): void {
   void pickFiles(rowPicker).then(async (files) => {
     if (files.length === 0) return;
     setRow(entry.id, { phase: "working", message: "Converting..." });
-    if (await convertPicked(files)) await finish(entry.id);
+    if (await convertPicked(files, entry.site)) await finish(entry.id);
     else setRow(entry.id, { phase: "pick", message: "That file didn't convert. You can choose another." });
   });
 }
