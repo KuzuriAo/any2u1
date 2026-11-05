@@ -7,12 +7,13 @@ export async function loadSettings(): Promise<Settings> {
   return parseSettings(settings);
 }
 
-/** Reads the latest first, so a page left open doesn't undo what another page changed. */
+/** Reads the latest first, so a page left open doesn't undo what another page changed. Stores only the checked shape, with its limits. */
 export async function updateSettings(change: (settings: Settings) => void): Promise<Settings> {
   const settings = await loadSettings();
   change(settings);
-  await api.storage.local.set({ settings });
-  return settings;
+  const checked = parseSettings(settings);
+  await api.storage.local.set({ settings: checked });
+  return checked;
 }
 
 export function onSettingsChanged(listener: (settings: Settings) => void): void {

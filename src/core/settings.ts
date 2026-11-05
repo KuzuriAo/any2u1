@@ -49,8 +49,9 @@ export function parseSettings(stored: unknown): Settings {
   return {
     enabled: typeof raw.enabled === "boolean" ? raw.enabled : defaults.enabled,
     offerStyle: raw.offerStyle === "badge" ? "badge" : "window",
+    // The newest are kept, so a site quieted when the list is full isn't the one left out.
     quietSites: Array.isArray(raw.quietSites)
-      ? [...new Set(raw.quietSites.filter((host): host is string => typeof host === "string" && host !== "" && host.length <= MAX_HOST))].slice(0, MAX_QUIET_SITES)
+      ? [...new Set(raw.quietSites.filter((host): host is string => typeof host === "string" && host !== "" && host.length <= MAX_HOST))].slice(-MAX_QUIET_SITES)
       : [],
     convert: {
       snapmakerOrcaVersion: typeof version === "string" && /^\d+(\.\d+){1,3}$/.test(version) ? version : null,

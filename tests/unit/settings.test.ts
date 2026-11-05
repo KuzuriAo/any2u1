@@ -23,9 +23,15 @@ describe("parseSettings", () => {
     const convert = { snapmakerOrcaVersion: "2.4.0", highFlowToolheads: [true, false, false, true], hardenedNozzles: true, filamentNames: "snapmaker" };
     expect(parseSettings({ convert }).convert).toEqual(convert);
   });
-  it("bounds the list of sites", () => {
+  it("bounds the list of sites, keeping the newest", () => {
     const quietSites = Array.from({ length: 2000 }, (_, index) => `s${index}.example`);
-    expect(parseSettings({ quietSites }).quietSites.length).toBe(500);
+    const kept = parseSettings({ quietSites }).quietSites;
+    expect(kept.length).toBe(500);
+    expect(kept.at(-1)).toBe("s1999.example");
+  });
+  it("is a fixed point, so what's stored after a change is what's read back", () => {
+    const parsed = parseSettings({ quietSites: ["a.example", "a.example", "b.example"], offerStyle: "badge" });
+    expect(parseSettings(parsed)).toEqual(parsed);
   });
 });
 
