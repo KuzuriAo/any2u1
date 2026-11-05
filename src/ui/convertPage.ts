@@ -42,6 +42,10 @@ const rows = new Map<number, RowState>();
 /** A row's fetch, so that dismissing the row ends it instead of leaving it running. */
 const fetches = new Map<number, AbortController>();
 
+/** Printed to the console just after the browser prints its own red line about a blocked read, so that someone who opens it can see why. */
+const BLOCKED_NOTE =
+  "any2u1: the message above is expected, and nothing is wrong. any2u1 first tries to read the file you chose to convert without asking for any site access. This site doesn't allow that, so any2u1 offers two choices: allow access to that one site, or choose the file you saved. Nothing was sent anywhere.";
+
 const PICK_ONLY = "This file can't be fetched again, so choose the copy you just saved. It's in your downloads folder.";
 /** How long the next save waits for one the browser hasn't finished. A save the user paused shouldn't hold up every other. */
 const SAVE_WAIT_MS = 60_000;
@@ -309,6 +313,7 @@ async function startConvert(entry: PendingDownload): Promise<void> {
   const size = item && item.fileSize > 0 ? item.fileSize : undefined;
   const differs = "That address didn't return the same file. Choose the copy you saved.";
   await fetchAndConvert(entry, delivery.url, size, (failure) => {
+    if (failure === "blocked") console.info(BLOCKED_NOTE);
     void (async () => {
       const hasAccess = await api.permissions.contains({ origins: [delivery.origin] });
       if (failure === "blocked" && !hasAccess) setRow(entry.id, { phase: "choice", delivery, size });

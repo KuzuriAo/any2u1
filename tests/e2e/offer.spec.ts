@@ -52,11 +52,16 @@ test("its own output gets no second offer", async () => {
 test("a server that refuses: explains first, with site access and the picker as equal choices", async () => {
   await site.download(session, "/closed/desk.3mf");
   const offer = await session.offerWindow();
+  const lines: string[] = [];
+  offer.on("console", (message) => lines.push(`${message.type()}: ${message.text()}`));
   await offer.locator("button.primary").click();
   const row = offer.locator(".row");
   await expect(row.locator("button.allow")).toHaveText("Allow access to 127.0.0.1");
   await expect(row.locator("button.pick")).toBeVisible();
   await expect(row.locator(".explain").first()).toContainText("127.0.0.1");
+  // The browser prints its own red line about the blocked read; the extension adds one saying why that's expected.
+  expect(lines.some((line) => line.startsWith("error:") && line.includes("CORS"))).toBe(true);
+  expect(lines.some((line) => line.startsWith("info: any2u1: the message above is expected, and nothing is wrong."))).toBe(true);
 
   const [chooser] = await Promise.all([offer.waitForEvent("filechooser"), row.locator("button.pick").click()]);
   await chooser.setFiles(fixturePath(SAMPLE));
@@ -310,6 +315,12 @@ test("the button with nothing waiting opens the convert page in a tab", async ()
 test("the settings page says which build it is, so an older one still loaded can be told from the latest", async () => {
   const page = await session.open("settings.html");
   await expect(page.locator("#version")).toHaveText(/^any2u1 \d+\.\d+\.\d+, build ([0-9a-f]{7,}\+?|unknown)$/);
+});
+
+test("the settings page explains the console message about a blocked read", async () => {
+  const page = await session.open("settings.html");
+  await expect(page.locator("main")).toContainText("blocked by a CORS policy");
+  await expect(page.locator("main")).toContainText("That is expected and nothing is wrong");
 });
 
 test("the settings page has a Close button that closes its tab", async () => {
