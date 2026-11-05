@@ -5,7 +5,7 @@
  * It reads no file and makes no request: the conversion, and any fetch, happen on the extension's page.
  */
 import { api } from "./browser";
-import { baseName } from "./core/names";
+import { displayName } from "./core/names";
 import { addPending, isPendingKey, listPending } from "./core/pending";
 import { hostsOf, is3mfDownload, isOwnDownload, siteOf } from "./core/recognize";
 import { isQuiet, parseSettings, type Settings } from "./core/settings";
@@ -56,7 +56,7 @@ async function downloadFinished(id: number): Promise<void> {
   if (isOwnDownload(item, api.runtime.id, api.runtime.getURL(""))) return;
   const settings = await loadSettings();
   if (!settings.enabled || isQuiet(hostsOf(item), settings.quietSites)) return;
-  await addPending(api.storage.session, { id, name: baseName(item.filename) || "Unnamed file", site: siteOf(item), at: Date.now() });
+  await addPending(api.storage.session, { id, name: displayName(item.filename) || "Unnamed file", site: siteOf(item), at: Date.now() });
   if (settings.offerStyle === "window") await openOfferWindow();
 }
 
