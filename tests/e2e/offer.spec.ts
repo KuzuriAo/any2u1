@@ -64,6 +64,18 @@ test("a server that refuses: explains first, with site access and the picker as 
   await expect(offer.locator(".row")).toHaveCount(0);
 });
 
+test("a row that goes to the picker can say where the browser saved the file", async () => {
+  await downloadBlob(session, site, "page-built.3mf", fixture(SAMPLE));
+  const offer = await session.offerWindow();
+  const row = offer.locator(".row");
+  await expect(row.locator("button.where")).toHaveText("Show where it was saved");
+  await row.locator("button.where").click();
+  // The path the browser reports, in the folder this test's browser saves to; the row still offers the picker.
+  await expect(row.locator(".explain")).toContainText(`${session.downloads}/page-built.3mf`);
+  await expect(row.locator(".explain")).toContainText("waiting for you to keep it");
+  await expect(row.locator("button.pick")).toBeVisible();
+});
+
 test("a file built in the page: straight to the picker, no prompt and no fetch", async () => {
   await downloadBlob(session, site, "page-built.3mf", fixture(SAMPLE));
   const offer = await session.offerWindow();

@@ -346,6 +346,30 @@ function pickButton(entry: PendingDownload): HTMLButtonElement {
   return button("Choose the saved file", () => pickForRow(entry), "pick");
 }
 
+/**
+ * Where the browser says it put the file. The file dialog opens in the Downloads folder, which isn't always where a browser
+ * saved it (another folder set in its settings, or a file it's holding until the user keeps it), so this asks the browser,
+ * opens that folder, and says the path in words.
+ */
+async function showWhereSaved(entry: PendingDownload): Promise<void> {
+  try {
+    const [item] = await api.downloads.search({ id: entry.id });
+    if (!item) {
+      setRow(entry.id, { phase: "pick", message: "The browser no longer lists this download. Choose the file by hand, wherever you saved it." });
+      return;
+    }
+    setRow(entry.id, {
+      phase: "pick",
+      message: `The browser says it saved this at ${item.filename}. If nothing is there, the file may have been moved or deleted, or the browser may be waiting for you to keep it.`,
+    });
+    await api.downloads.show(entry.id);
+  } catch {
+    setRow(entry.id, { phase: "pick", message: "The browser couldn't show where this was saved. Choose the file by hand." });
+  }
+}
+
+const whereButton = (entry: PendingDownload) => button("Show where it was saved", () => void showWhereSaved(entry), "link where");
+
 function rowActions(entry: PendingDownload, state: RowState): Array<Node> {
   switch (state.phase) {
     case "ready":
@@ -353,7 +377,7 @@ function rowActions(entry: PendingDownload, state: RowState): Array<Node> {
     case "working":
       return [el("p", { class: "working" }, state.message)];
     case "pick":
-      return [el("p", { class: "explain" }, state.message), pickButton(entry)];
+      return [el("p", { class: "explain" }, state.message), el("div", { class: "actions" }, pickButton(entry), whereButton(entry))];
     case "choice":
       return [
         el("p", { class: "explain" }, `The server at ${state.delivery.host} doesn't let extensions read this file. You can allow access to that one host, or choose the copy you saved; both work the same.`),
