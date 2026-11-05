@@ -59,9 +59,10 @@ test("a server that refuses: explains first, with site access and the picker as 
   await expect(row.locator("button.allow")).toHaveText("Allow access to 127.0.0.1");
   await expect(row.locator("button.pick")).toBeVisible();
   await expect(row.locator(".explain").first()).toContainText("127.0.0.1");
-  // The browser prints its own red line about the blocked read; the extension adds one saying why that's expected.
+  // The browser logs its own error about the blocked read; the extension adds a warning saying why that's expected.
   expect(lines.some((line) => line.startsWith("error:") && line.includes("CORS"))).toBe(true);
-  expect(lines.some((line) => line.startsWith("info: any2u1: the message above is expected, and nothing is wrong."))).toBe(true);
+  expect(lines.some((line) => line.startsWith("warning: any2u1: the \"blocked by CORS policy\" error next to this message is expected, and nothing is wrong."))).toBe(true);
+  expect(lines.some((line) => line.startsWith("info:") && line.includes("any2u1"))).toBe(false);
 
   const [chooser] = await Promise.all([offer.waitForEvent("filechooser"), row.locator("button.pick").click()]);
   await chooser.setFiles(fixturePath(SAMPLE));
