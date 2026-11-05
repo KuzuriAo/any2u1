@@ -79,6 +79,6 @@ need("#close").addEventListener("click", () => {
   })();
 });
 
-need("#version").textContent = `any2u1 ${api.runtime.getManifest().version}`;
+need("#version").textContent = `any2u1 ${api.runtime.getManifest().version}, build ${__BUILD_ID__}`;
 void draw();
 void drawHosts();

@@ -289,6 +289,11 @@ test("the button with nothing waiting opens the convert page in a tab", async ()
   expect(offerWindows(session)).toEqual([]);
 });
 
+test("the settings page says which build it is, so an older one still loaded can be told from the latest", async () => {
+  const page = await session.open("settings.html");
+  await expect(page.locator("#version")).toHaveText(/^any2u1 \d+\.\d+\.\d+, build ([0-9a-f]{7,}\+?|unknown)$/);
+});
+
 test("the settings page has a Close button that closes its tab", async () => {
   const page = await session.open("settings.html");
   await expect(page.locator("#close")).toBeVisible();
