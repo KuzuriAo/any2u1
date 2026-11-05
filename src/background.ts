@@ -46,7 +46,9 @@ async function openOfferWindow(): Promise<void> {
 
 async function showBadge(): Promise<void> {
   const count = (await listPending(api.storage.session)).length;
-  await api.action.setBadgeBackgroundColor({ color: "#0b6e4f" });
+  // Amber with dark text: it stands out on the purple icon and on a light or a dark toolbar.
+  await api.action.setBadgeBackgroundColor({ color: "#f59e0b" });
+  await api.action.setBadgeTextColor({ color: "#1b1d1c" });
   await api.action.setBadgeText({ text: count === 0 ? "" : String(count) });
 }
 

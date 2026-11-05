@@ -290,6 +290,7 @@ test("the badge setting: a number and no window, and the button opens the window
   await setSettings(session, { ...defaultSettings(), offerStyle: "badge" });
   await site.download(session, "/open/desk.3mf");
   await expect.poll(() => session.worker.evaluate(() => chrome.action.getBadgeText({}))).toBe("1");
+  expect(await session.worker.evaluate(() => chrome.action.getBadgeBackgroundColor({}))).toEqual([245, 158, 11, 255]);
   expect(offerWindows(session)).toEqual([]);
 
   await session.worker.evaluate(() => (chrome.action.onClicked as unknown as { dispatch(tab: object): void }).dispatch({}));
