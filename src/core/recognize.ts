@@ -75,6 +75,10 @@ export type Delivery =
 
 export function deliveryOf(item: DownloadFacts): Delivery {
   const url = parse(fileAddress(item));
-  if (url === null || url.protocol !== "https:" || url.hostname === "") return { kind: "pick" };
+  // A `*` would make the access asked for a pattern of many hosts. No real download comes from such a host.
+  if (url === null || url.protocol !== "https:" || url.hostname === "" || url.hostname.includes("*")) return { kind: "pick" };
+  // A fetch refuses an address with a user name or password in it, and access to the host wouldn't change that.
+  url.username = "";
+  url.password = "";
   return { kind: "fetch", url: url.href, host: url.hostname, origin: `https://${url.hostname}/*` };
 }

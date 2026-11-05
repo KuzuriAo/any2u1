@@ -77,9 +77,16 @@ describe("deliveryOf", () => {
     }
   });
   it("can't be made to ask for more than one host", () => {
-    const delivery = deliveryOf({ url: "https://*.example/a.3mf" });
-    if (delivery.kind === "fetch") expect(delivery.origin).not.toBe("https://*/*");
+    for (const url of ["https://*.example/a.3mf", "https://*/a.3mf", "https://a.*.example/a.3mf"]) expect(deliveryOf({ url })).toEqual({ kind: "pick" });
     const trick = deliveryOf({ url: "https://site.example:444/a.3mf" });
     expect(trick).toMatchObject({ origin: "https://site.example/*" });
+  });
+  it("leaves out a user name and password, which a fetch refuses and access can't fix", () => {
+    expect(deliveryOf({ url: "https://user:secret@dl.site.example:8443/a.3mf?sig=1" })).toEqual({
+      kind: "fetch",
+      url: "https://dl.site.example:8443/a.3mf?sig=1",
+      host: "dl.site.example",
+      origin: "https://dl.site.example/*",
+    });
   });
 });
