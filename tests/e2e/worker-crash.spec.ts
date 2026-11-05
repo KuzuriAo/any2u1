@@ -61,6 +61,25 @@ test("a worker that fails mid-conversion: the file gets a message, and the next 
   expect(await page.evaluate(() => (window as unknown as { workers: Worker[] }).workers.length)).toBe(2);
 });
 
+test("Stop ends a conversion that doesn't finish, says so without a report, and the next file converts", async () => {
+  const page = await openWithWorkerHook();
+  await expect(page.locator("#stop")).toBeHidden();
+  await page.evaluate(() => ((window as unknown as { swallow: boolean }).swallow = true));
+  await page.setInputFiles("#file", { name: "stuck.3mf", mimeType: "model/3mf", buffer: fixture(SAMPLE) });
+  await expect(page.locator("#status")).toContainText("Converting stuck.3mf");
+  await page.locator("#stop").click();
+  await expect(page.locator(".failed strong")).toHaveText("stuck.3mf");
+  await expect(page.locator(".failed p")).toContainText("Stopped before it finished");
+  await expect(page.locator(".failed .report")).toHaveCount(0);
+  await expect(page.locator("#stop")).toBeHidden();
+  await expect(page.locator("#status")).toBeEmpty();
+
+  await page.evaluate(() => ((window as unknown as { swallow: boolean }).swallow = false));
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted strong")).toHaveText(SAMPLE.replace(/\.3mf$/, "_U1.3mf"));
+  await expect(page.locator("#stop")).toBeHidden();
+});
+
 test("a worker that fails while idle: the next file still converts", async () => {
   const page = await openWithWorkerHook();
   await failLatestWorker(page);

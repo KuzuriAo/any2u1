@@ -36,8 +36,9 @@ p { margin: 0.25rem 0; }
 a { color: var(--accent); }
 .help { color: var(--muted); font-size: 0.85rem; }
 .tip { background: var(--tip); color: var(--tip-ink); border-radius: 6px; padding: 0.55rem 0.7rem; font-size: 0.87rem; margin-top: 0.6rem; }
-#status:empty { display: none; }
-#status { color: var(--muted); margin-bottom: 1rem; }
+.progress { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.8rem; margin-bottom: 1rem; }
+.progress:has(#status:empty) { display: none; }
+#status { color: var(--muted); margin: 0; overflow-wrap: anywhere; }
 
 button { font: inherit; border-radius: 6px; padding: 0.45rem 0.8rem; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); max-width: 100%; overflow-wrap: anywhere; }
 button:hover { border-color: var(--muted); }
@@ -59,6 +60,8 @@ button.link:hover { color: var(--ink); }
 .failed { border-color: var(--bad); }
 .failed p { color: var(--bad); }
 .saved { color: var(--muted); font-size: 0.9rem; }
+.converted.unsaved { border-color: var(--bad); }
+.converted.unsaved .saved { color: var(--bad); }
 .already { margin: 0.4rem 0 0; padding: 0.45rem 0.65rem; border-radius: 6px; background: var(--tip); color: var(--tip-ink); font-weight: 600; font-size: 0.9rem; }
 .report { margin-top: 0.5rem; font-size: 0.85rem; }
 .report-text { margin-top: 0.3rem; }

@@ -32,6 +32,7 @@ export type Failed = { source: string; error: string; code?: string; slicer?: st
 export type Outcome = Converted | Failed;
 
 const CRASHED = "The conversion stopped, most likely because the browser ran out of memory for this file.";
+const STOPPED = "Stopped before it finished. Nothing was saved for this file.";
 
 let worker: ConverterWorker | null = null;
 let crashed: ((error: Error) => void) | null = null;
@@ -44,15 +45,24 @@ function start(): ConverterWorker {
     crashed = reject;
   });
   crash.catch(() => {});
-  const fail = () => {
-    crashed?.(new Error(CRASHED));
-    worker?.terminate();
-    worker = null;
-  };
+  const fail = () => end(CRASHED);
   script.addEventListener("error", fail);
   script.addEventListener("messageerror", fail);
   worker = createConverterWorker(script, { profilesUrl: new URL("profiles/", window.location.href) });
   return worker;
+}
+
+/** Ends the worker: the call in progress fails with `message`, and the next call starts a new worker. */
+function end(message: string): void {
+  crashed?.(new Error(message));
+  crashed = null;
+  worker?.terminate();
+  worker = null;
+}
+
+/** Stops the conversion in progress. Its file gets a message, and the next file converts in a new worker. */
+export function stopConverting(): void {
+  if (worker) end(STOPPED);
 }
 
 /**
@@ -75,7 +85,7 @@ function failure(source: string, error: unknown, size: number): Failed {
     source,
     error: message,
     size,
-    code: typeof code === "string" ? code : message === CRASHED ? "worker_stopped" : "unknown",
+    code: typeof code === "string" ? code : message === CRASHED ? "worker_stopped" : message === STOPPED ? "stopped" : "unknown",
     ...(typeof slicer === "string" ? { slicer } : {}),
   };
 }
@@ -136,7 +146,7 @@ export async function convertFile(name: string, bytes: Uint8Array, convert: Conv
         outcomes.push(await convertOne(entry.name, entry.bytes, convert, releases));
       } catch (error) {
         outcomes.push(failure(entry.name, error, entrySize));
-        if (error instanceof Error && error.message === CRASHED) break;
+        if (error instanceof Error && (error.message === CRASHED || error.message === STOPPED)) break;
       }
     }
     return outcomes;

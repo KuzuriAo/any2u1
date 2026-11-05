@@ -116,9 +116,11 @@ export type TestSite = {
   url: string;
   log: Logged[];
   close(): Promise<void>;
-  /** Clicks a link on a page of this site, downloading that path, and returns when the file is saved. */
+  /** Clicks a link on a page of this site to that path or address, and returns once this site has been asked for it. */
   download(session: Session, path: string): Promise<void>;
   countFor(path: string): number;
+  /** Answers to /trickle/ still being sent: a server that starts a file and never finishes it. */
+  trickling(): number;
 };
 
 /** A local HTTPS site that serves files the ways real sites do. */
@@ -126,6 +128,7 @@ export async function startSite(sample: Buffer = fixture(SAMPLE)): Promise<TestS
   const dir = mkdtempSync(join(tmpdir(), "extension-cert-"));
   execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", join(dir, "key.pem"), "-out", join(dir, "cert.pem"), "-days", "2", "-subj", "/CN=127.0.0.1"], { stdio: "ignore" });
   const log: Logged[] = [];
+  let trickling = 0;
   const zip = Buffer.from(zipSync({ "a/one.3mf": sample, "b/two.3mf": sample }));
   const server: Server = createServer({ key: readFileSync(join(dir, "key.pem")), cert: readFileSync(join(dir, "cert.pem")) }, (request, response) => {
     const path = new URL(request.url ?? "/", "https://x").pathname;
@@ -149,6 +152,19 @@ export async function startSite(sample: Buffer = fixture(SAMPLE)): Promise<TestS
     // The first answer is the real file; a second look gets a login page or something else.
     if (path === "/wall/desk.3mf") return seen === 1 ? send(sample, "model/3mf", open) : send("<html>Log in</html>", "text/html", open);
     if (path === "/changed/desk.3mf") return send(seen === 1 ? sample : Buffer.concat([sample, Buffer.from("x")]), "model/3mf", open);
+    // The browser's download gets the file; a second look gets the start of a zip, then a byte a second, forever.
+    if (path.startsWith("/trickle/")) {
+      if (seen === 1) return send(sample, "model/3mf", open);
+      response.writeHead(200, { "content-type": "model/3mf", ...open });
+      response.write(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+      trickling += 1;
+      const timer = setInterval(() => response.write(Buffer.from([0])), 1000);
+      response.on("close", () => {
+        clearInterval(timer);
+        trickling -= 1;
+      });
+      return;
+    }
     response.writeHead(404);
     response.end();
   });
@@ -159,7 +175,12 @@ export async function startSite(sample: Buffer = fixture(SAMPLE)): Promise<TestS
     url,
     log,
     countFor: (path) => log.filter((entry) => entry.path === path).length,
-    close: () => new Promise((resolve) => server.close(() => resolve())),
+    trickling: () => trickling,
+    close: () =>
+      new Promise((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
     download: async (session, path) => {
       const page = await session.context.newPage();
       await page.goto(`${url}/`);
@@ -170,7 +191,7 @@ export async function startSite(sample: Buffer = fixture(SAMPLE)): Promise<TestS
         document.body.append(link);
         link.click();
       }, path);
-      await expect.poll(() => site.countFor(path)).toBeGreaterThan(0);
+      await expect.poll(() => site.countFor(new URL(path, url).pathname)).toBeGreaterThan(0);
     },
   };
   return site;

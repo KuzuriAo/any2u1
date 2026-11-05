@@ -3,10 +3,11 @@
 import { api } from "../browser";
 import { fetchFile, type FetchFailure } from "../core/fetchFile";
 import { MAX_FILES_AT_ONCE, MAX_INPUT_BYTES } from "../core/limits";
+import { displayName } from "../core/names";
 import { isPendingKey, listPending, removePending, type PendingDownload } from "../core/pending";
 import { deliveryOf, type Delivery } from "../core/recognize";
 import { activeRelease } from "../core/releases";
-import { convertFile, listReleases, type Converted, type Outcome } from "./engine";
+import { convertFile, listReleases, stopConverting, type Converted, type Outcome } from "./engine";
 import { button, el, need } from "./dom";
 import { renderOptions } from "./optionsForm";
 import { pickFiles } from "./picker";
@@ -23,6 +24,7 @@ const manualPicker = need<HTMLInputElement>("#file");
 const rowPicker = need<HTMLInputElement>("#row-file");
 const dropZone = need<HTMLElement>("#drop");
 const status = need<HTMLElement>("#status");
+const stop = need<HTMLButtonElement>("#stop");
 const options = need<HTMLElement>("#options");
 
 if (new URLSearchParams(location.search).get("view") === "window") document.body.classList.add("small");
@@ -35,10 +37,14 @@ type RowState =
   | { phase: "choice"; delivery: Extract<Delivery, { kind: "fetch" }>; size: number | undefined }
   | { phase: "pick"; message: string };
 const rows = new Map<number, RowState>();
+/** A row's fetch, so that dismissing the row ends it instead of leaving it running. */
+const fetches = new Map<number, AbortController>();
 
 const PICK_ONLY = "This file can't be fetched again, so choose the copy you just saved. It's in your downloads folder.";
+/** How long the next save waits for one the browser hasn't finished. A save the user paused shouldn't hold up every other. */
+const SAVE_WAIT_MS = 60_000;
 
-// One conversion at a time: a Web Worker holding two large files at once helps nobody.
+// One file at a time, fetched or converting: a page holding several large files at once helps nobody.
 let queue: Promise<unknown> = Promise.resolve();
 function inTurn<T>(work: () => Promise<T>): Promise<T> {
   const next = queue.then(work);
@@ -55,27 +61,82 @@ function setRow(id: number, state: RowState): void {
   void drawPending();
 }
 
-/** Saves through the browser, then offers to show the file. The extension's own save never gets an offer. */
-async function save(result: Converted, item: HTMLLIElement): Promise<void> {
+/** Waits until the browser is done with a download, whether it was saved or not. */
+function settled(id: number): Promise<chrome.downloads.DownloadItem | undefined> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (found: chrome.downloads.DownloadItem | undefined) => {
+      if (done) return;
+      done = true;
+      api.downloads.onChanged.removeListener(watch);
+      resolve(found);
+    };
+    const check = () =>
+      api.downloads.search({ id }).then(
+        ([found]) => {
+          if (!found || found.state !== "in_progress") finish(found);
+        },
+        () => finish(undefined),
+      );
+    const watch = (delta: chrome.downloads.DownloadDelta) => {
+      if (delta.id === id && delta.state && delta.state.current !== "in_progress") void check();
+    };
+    api.downloads.onChanged.addListener(watch);
+    // A small file can finish before the listener is in place.
+    void check();
+  });
+}
+
+/** What the result says once the browser is done: where the file is, or that it isn't there. */
+function showSaved(item: HTMLLIElement, id: number, asked: string, download: chrome.downloads.DownloadItem | undefined): void {
+  const line = item.querySelector<HTMLElement>(".saved");
+  if (!line) return;
+  if (download?.state === "complete") {
+    // The browser may have changed the name, for example to avoid a file already there; say the one it used.
+    const savedAs = displayName(download.filename);
+    const title = item.querySelector("strong");
+    if (savedAs !== "" && savedAs !== asked && title) title.textContent = savedAs;
+    line.append(button("Show in folder", () => api.downloads.show(id), "link show"));
+    return;
+  }
+  item.classList.add("unsaved");
+  line.textContent = `This file wasn't saved: ${whyUnsaved(download?.error)}. Convert it again to save it.`;
+}
+
+/** The browser's reason in words. Chrome also says "canceled" when it couldn't write to the folder, so that isn't blamed on the user. */
+function whyUnsaved(error: string | undefined): string {
+  if (error === "FILE_NO_SPACE") return "there isn't enough space on the disk";
+  if (error === "USER_CANCELED" || error?.startsWith("FILE_")) return "the browser couldn't write it to the downloads folder, or the save was canceled";
+  return "the browser stopped the download";
+}
+
+async function saveNow(result: Converted, item: HTMLLIElement): Promise<void> {
   const url = URL.createObjectURL(new Blob([result.output as BlobPart], { type: "model/3mf" }));
-  let id: number | undefined;
-  let settled = false;
-  const settle = (state: string | undefined) => {
-    if (settled || id === undefined || state === undefined || state === "in_progress") return;
-    settled = true;
-    api.downloads.onChanged.removeListener(watch);
+  let id: number;
+  try {
+    id = await api.downloads.download({ url, filename: result.name, conflictAction: "uniquify", saveAs: false });
+  } catch (error) {
     URL.revokeObjectURL(url);
-    const saved = id;
-    if (state === "complete") item.querySelector(".saved")?.append(button("Show in folder", () => api.downloads.show(saved), "link show"));
-  };
-  const watch = (delta: chrome.downloads.DownloadDelta) => {
-    if (delta.id === id) settle(delta.state?.current);
-  };
-  api.downloads.onChanged.addListener(watch);
-  id = await api.downloads.download({ url, filename: result.name, conflictAction: "uniquify", saveAs: false });
-  // A small file can finish before the id is known here.
-  const [done] = await api.downloads.search({ id });
-  settle(done?.state);
+    throw error;
+  }
+  const done = settled(id).then((download) => {
+    URL.revokeObjectURL(url);
+    showSaved(item, id, result.name, download);
+  });
+  await Promise.race([done, new Promise((resolve) => setTimeout(resolve, SAVE_WAIT_MS))]);
+}
+
+// One save at a time. Two started together under one name can both fail in one browser, and the first file goes with them.
+let saving: Promise<unknown> = Promise.resolve();
+
+/** Saves through the browser, then offers to show the file. The extension's own save never gets an offer. */
+function save(result: Converted, item: HTMLLIElement): void {
+  const next = saving.then(() => saveNow(result, item));
+  saving = next.catch(() => {});
+  next.catch((error: unknown) => {
+    item.classList.add("unsaved");
+    item.querySelector(".saved")!.textContent = `Couldn't save this file: ${error instanceof Error ? error.message : "the browser refused"}.`;
+  });
 }
 
 /** A color from the file, used only if it's a plain hex color. */
@@ -102,8 +163,9 @@ function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
 function showOutcome(outcome: Outcome, site: string | null = null): boolean {
   resultsSection.hidden = false;
   if ("error" in outcome) {
-    const report = failureReport({ code: outcome.code, slicer: outcome.slicer, size: outcome.size, site, ...environment() });
-    results.append(el("li", { class: "failed" }, el("strong", {}, outcome.source), el("p", {}, outcome.error), reportBlock(report, "Copy a report")));
+    // Stopping is the user's own choice, so there's nothing to report.
+    const report = outcome.code === "stopped" ? null : reportBlock(failureReport({ code: outcome.code, slicer: outcome.slicer, size: outcome.size, site, ...environment() }), "Copy a report");
+    results.append(el("li", { class: "failed" }, el("strong", {}, displayName(outcome.source)), el("p", {}, outcome.error), report));
     return false;
   }
   const item = el("li", { class: "converted" },
@@ -115,28 +177,36 @@ function showOutcome(outcome: Outcome, site: string | null = null): boolean {
     filamentList(outcome.filaments),
     outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, note))));
   results.append(item);
-  void save(outcome, item).catch((error: unknown) => {
-    item.querySelector(".saved")!.textContent = `Couldn't save this file: ${error instanceof Error ? error.message : "the browser refused"}.`;
-  });
+  save(outcome, item);
   need("#open-tip").hidden = false;
   return true;
 }
 
 /** "unsupported" means a readable project from a slicer the library doesn't convert: another copy of it won't help. */
-type Result = "converted" | "unsupported" | "failed";
+type Result = "converted" | "unsupported" | "stopped" | "failed";
 
-async function convertAndShow(name: string, bytes: Uint8Array, site: string | null = null): Promise<Result> {
+/** Converts now; the caller has its turn. */
+async function convertNow(name: string, bytes: Uint8Array, site: string | null): Promise<Result> {
   const size = bytes.byteLength;
-  return inTurn(async () => {
-    say(`Converting ${name}...`);
+  say(`Converting ${displayName(name)}...`);
+  stop.hidden = false;
+  try {
     const settings = await loadSettings();
     const outcomes = await convertFile(name, bytes, settings.convert);
     const converted = outcomes.map((outcome) => showOutcome(outcome, site)).some(Boolean);
-    say("");
     if (outcomes.length === 0) showOutcome({ source: name, error: "This zip has no 3MF file inside.", code: "zip_no_3mf", size }, site);
     if (converted) return "converted";
-    return outcomes.length > 0 && outcomes.every((outcome) => "code" in outcome && outcome.code === "unsupported_slicer") ? "unsupported" : "failed";
-  });
+    const codes = outcomes.map((outcome) => ("code" in outcome ? outcome.code : undefined));
+    if (codes.includes("stopped")) return "stopped";
+    return codes.length > 0 && codes.every((code) => code === "unsupported_slicer") ? "unsupported" : "failed";
+  } finally {
+    stop.hidden = true;
+    say("");
+  }
+}
+
+function convertAndShow(name: string, bytes: Uint8Array, site: string | null = null): Promise<Result> {
+  return inTurn(() => convertNow(name, bytes, site));
 }
 
 /** Files handed over by the user. Sizes are checked before a large file is read into memory. */
@@ -154,21 +224,35 @@ async function convertPicked(files: File[], site: string | null = null): Promise
 }
 
 async function finish(id: number): Promise<void> {
+  fetches.get(id)?.abort();
+  fetches.delete(id);
   rows.delete(id);
   await removePending(api.storage.session, id);
 }
 
 async function fetchAndConvert(entry: PendingDownload, url: string, size: number | undefined, onRefused: (failure: FetchFailure) => void): Promise<void> {
-  setRow(entry.id, { phase: "working", message: "Getting the file..." });
-  const fetched = await fetchFile(url, size);
-  if (!fetched.ok) {
-    onRefused(fetched.failure);
-    return;
+  const controller = new AbortController();
+  fetches.set(entry.id, controller);
+  setRow(entry.id, { phase: "working", message: "Waiting for the files ahead of it..." });
+  let result: Result | FetchFailure;
+  try {
+    result = await inTurn(async () => {
+      if (controller.signal.aborted) return "stopped";
+      setRow(entry.id, { phase: "working", message: "Getting the file..." });
+      const fetched = await fetchFile(url, size, { signal: controller.signal });
+      if (!fetched.ok) return fetched.failure;
+      setRow(entry.id, { phase: "working", message: "Converting..." });
+      return convertNow(entry.name, fetched.bytes, entry.site);
+    });
+  } finally {
+    if (fetches.get(entry.id) === controller) fetches.delete(entry.id);
   }
-  setRow(entry.id, { phase: "working", message: "Converting..." });
-  const result = await convertAndShow(entry.name, fetched.bytes, entry.site);
+  // Dismissed while it waited, fetched or converted: the row is gone, and whatever converted is in the results.
+  if (controller.signal.aborted) return;
+  if (result === "blocked" || result === "wrong-file") onRefused(result);
   // A project from another slicer would fail the same way from the saved copy, so only a damaged file gets that offer.
-  if (result === "failed") setRow(entry.id, { phase: "pick", message: "If the file was damaged on the way here, try the copy you saved." });
+  else if (result === "failed") setRow(entry.id, { phase: "pick", message: "If the file was damaged on the way here, try the copy you saved." });
+  else if (result === "stopped") setRow(entry.id, { phase: "ready" });
   else await finish(entry.id);
 }
 
@@ -181,12 +265,13 @@ async function startConvert(entry: PendingDownload): Promise<void> {
     return;
   }
   const size = item && item.fileSize > 0 ? item.fileSize : undefined;
+  const differs = "That address didn't return the same file. Choose the copy you saved.";
   await fetchAndConvert(entry, delivery.url, size, (failure) => {
     void (async () => {
       const hasAccess = await api.permissions.contains({ origins: [delivery.origin] });
       if (failure === "blocked" && !hasAccess) setRow(entry.id, { phase: "choice", delivery, size });
-      else setRow(entry.id, { phase: "pick", message: "That address didn't return the same file. Choose the copy you saved." });
-    })();
+      else setRow(entry.id, { phase: "pick", message: differs });
+    })().catch(() => setRow(entry.id, { phase: "pick", message: differs }));
   });
 }
 
@@ -238,7 +323,11 @@ function rowActions(entry: PendingDownload, state: RowState): Array<Node> {
 
 async function quietSite(entry: PendingDownload): Promise<void> {
   const site = entry.site;
-  if (site !== null) await updateSettings((settings) => void settings.quietSites.push(site));
+  if (site !== null) {
+    await updateSettings((settings) => {
+      if (!settings.quietSites.includes(site)) settings.quietSites.push(site);
+    });
+  }
   await finish(entry.id);
 }
 
@@ -261,9 +350,10 @@ async function drawPending(): Promise<void> {
       el("strong", { class: "name" }, entry.name),
       entry.site !== null && el("span", { class: "site" }, entry.site),
       el("div", { class: "row-body" }, ...rowActions(entry, state)),
-      state.phase !== "working" && el("div", { class: "row-foot" },
+      // Dismiss stays while a file is on its way, so a server that never finishes sending can't keep the row forever.
+      el("div", { class: "row-foot" },
         button("Dismiss", () => void finish(entry.id), "link dismiss"),
-        entry.site !== null && button(`Not on ${entry.site}`, () => void quietSite(entry), "link quiet")));
+        state.phase !== "working" && entry.site !== null && button(`Not on ${entry.site}`, () => void quietSite(entry), "link quiet")));
   }));
 }
 
@@ -275,6 +365,7 @@ manualPicker.addEventListener("change", () => {
 });
 
 need("#choose").addEventListener("click", () => void pickFiles(manualPicker).then(convertPicked));
+stop.addEventListener("click", () => stopConverting());
 
 // The whole page takes a drop: a file dropped beside the zone would otherwise make the browser leave the page.
 for (const type of ["dragenter", "dragover"]) {

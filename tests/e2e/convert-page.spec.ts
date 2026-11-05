@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { chmodSync } from "node:fs";
 import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
@@ -139,6 +140,53 @@ test("a hostile name stays text, and can't choose where the file goes", async ()
   await expect(page.locator(".converted strong")).toHaveText("_img src=x onerror=alert(1)__U1.3mf");
   await expect(page.locator(".converted img")).toHaveCount(0);
   await session.savedFile("_img src=x onerror=alert(1)__U1.3mf");
+});
+
+test("names a browser would refuse or shorten are cleaned first, so every file is saved under the name shown", async () => {
+  const page = await session.open("convert.html");
+  const sample = fixture(SAMPLE);
+  const names = {
+    "family\u{1F468}\u200d\u{1F469}\u200d\u{1F467}.3mf": "family\u{1F468}\u{1F469}\u{1F467}_U1.3mf",
+    "my\u200bmodel.3mf": "mymodel_U1.3mf",
+    "nbsp\u00a0x.3mf": "nbsp x_U1.3mf",
+    [`x${"\u{1F600}".repeat(90)}.3mf`]: `x${"\u{1F600}".repeat(49)}_U1.3mf`,
+    [`${"\u6f22".repeat(150)}.3mf`]: `${"\u6f22".repeat(66)}_U1.3mf`,
+  };
+  await page.setInputFiles("#file", zipFile("names.zip", Object.fromEntries(Object.keys(names).map((name) => [name, sample]))));
+  await expect(page.locator(".converted button.show")).toHaveCount(Object.keys(names).length, { timeout: 30_000 });
+  await expect(page.locator(".converted.unsaved")).toHaveCount(0);
+  for (const saved of Object.values(names)) await session.savedFile(saved);
+  expect(savedNames(session).sort()).toEqual(Object.values(names).sort());
+  expect((await page.locator(".converted strong").allTextContents()).sort()).toEqual(Object.values(names).sort());
+});
+
+test("two files with one name in a zip are both saved, and each result names the file the browser wrote", async () => {
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", zipFile("variants.zip", { "a/same.3mf": fixture(SAMPLE), "b/same.3mf": fixture(SAMPLE) }));
+  await expect(page.locator(".converted button.show")).toHaveCount(2);
+  await session.savedFile("same_U1.3mf");
+  await session.savedFile("same_U1 (1).3mf");
+  await expect(page.locator(".converted strong")).toHaveText(["same_U1.3mf", "same_U1 (1).3mf"]);
+});
+
+test("a save the browser stops says the file wasn't saved, instead of saying it was", async () => {
+  const page = await session.open("convert.html");
+  // A downloads folder that can't be written to: the browser starts the save, then stops it.
+  chmodSync(session.downloads, 0o555);
+  try {
+    await page.setInputFiles("#file", fixturePath(SAMPLE));
+    await expect(page.locator(".converted.unsaved .saved")).toContainText("This file wasn't saved", { timeout: 15_000 });
+    await expect(page.locator(".converted .saved")).not.toContainText("Saved to your downloads");
+    await expect(page.locator(".converted button.show")).toHaveCount(0);
+  } finally {
+    chmodSync(session.downloads, 0o755);
+  }
+});
+
+test("a name that could turn itself around on screen is shown without the marks that do it", async () => {
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", { name: "report\u202efdp.3mf", mimeType: "text/plain", buffer: Buffer.from("not a 3MF") });
+  await expect(page.locator(".failed strong")).toHaveText("reportfdp.3mf");
 });
 
 test("after saving: show in folder, and the warning about how to open the file", async () => {
@@ -355,4 +403,6 @@ test("the settings page copies the versions, and says what a download manager do
   await expect(page.locator("#diagnostics .copy-report")).toHaveText("Copied");
   const [copied] = await written(page);
   expect(copied).toMatch(/^any2u1 diagnostics\nBrowser: Chrome \d+\nany2u1 0\.1\.0, any2orca \d+\.\d+\.\d+$/);
+  // The settings page, like the others, asks for nothing but the extension's own files.
+  expectOnlyThese(session.requests, session.origin);
 });

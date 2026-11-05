@@ -90,6 +90,48 @@ for (const [name, path] of [["a soft login wall", "/wall/desk.3mf"], ["a file th
   });
 }
 
+test("a server that never finishes sending: Dismiss stays, and ends the fetch", async () => {
+  await site.download(session, "/trickle/desk.3mf");
+  const offer = await session.offerWindow();
+  await offer.locator("button.primary").click();
+  await expect(offer.locator(".row .working")).toHaveText("Getting the file...");
+  await expect.poll(() => site.trickling()).toBe(1);
+  await offer.locator(".row button.dismiss").click();
+  await expect(offer.locator(".row")).toHaveCount(0);
+  await expect.poll(() => site.trickling()).toBe(0);
+  expect(await session.pendingCount()).toBe(0);
+});
+
+test("one file is fetched at a time, and the next starts when the first is dismissed", async () => {
+  await site.download(session, "/trickle/one.3mf");
+  const offer = await session.offerWindow();
+  await site.download(session, "/trickle/two.3mf");
+  await expect(offer.locator(".row button.primary")).toHaveCount(2);
+  await offer.locator(".row button.primary").first().click();
+  await expect(offer.locator(".row .working").first()).toHaveText("Getting the file...");
+  await offer.locator(".row button.primary").click();
+  await expect(offer.locator(".row .working")).toHaveText(["Getting the file...", "Waiting for the files ahead of it..."]);
+  await offer.waitForTimeout(1500);
+  expect(site.trickling()).toBe(1);
+  await offer.locator(".row button.dismiss").first().click();
+  await expect(offer.locator(".row .working")).toHaveText("Getting the file...");
+  await expect.poll(() => site.countFor("/trickle/two.3mf")).toBe(2);
+  // The server hears the first connection close a moment after the page has let it go.
+  await expect.poll(() => site.trickling()).toBe(1);
+  await offer.locator(".row button.dismiss").click();
+  await expect.poll(() => site.trickling()).toBe(0);
+});
+
+test("an address with a user name and password: fetched without them, with no prompt", async () => {
+  await site.download(session, site.url.replace("https://", "https://user:secret@") + "/open/desk.3mf");
+  const offer = await session.offerWindow();
+  await offer.locator("button.primary").click();
+  await expect(offer.locator(".converted strong")).toHaveText("desk_U1.3mf");
+  await expect(offer.locator(".row button.allow")).toHaveCount(0);
+  const fetched = site.log.filter((entry) => entry.path === "/open/desk.3mf").at(-1)!;
+  expect(fetched.headers.authorization).toBeUndefined();
+});
+
 test("a file saved with no extension is caught by its type, and named sensibly", async () => {
   await site.download(session, "/type-only/thing");
   const offer = await session.offerWindow();
