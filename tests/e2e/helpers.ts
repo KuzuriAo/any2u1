@@ -19,8 +19,8 @@ export const fixture = (name: string) => readFileSync(fixturePath(name));
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 export const libraryVersion = (JSON.parse(readFileSync(fileURLToPath(new URL("../../node_modules/any2orca/package.json", import.meta.url)), "utf-8")) as { version: string }).version;
 export const SAMPLE = "bambu-studio-2.8.4.57-beta.3mf";
-/** The PrusaSlicer fixtures: a box, a box with painted fuzzy skin, and a four-filament scene. */
-export const PRUSA_FIXTURES = ["prusaslicer-2.9.6.3mf", "prusaslicer-2.9.6-fuzzy-skin.3mf", "prusaslicer-2.9.6-scene.3mf"];
+/** The PrusaSlicer fixtures: a box, a box with painted fuzzy skin, a four-filament scene, and that scene spread over four beds. */
+export const PRUSA_FIXTURES = ["prusaslicer-2.9.6.3mf", "prusaslicer-2.9.6-fuzzy-skin.3mf", "prusaslicer-2.9.6-scene.3mf", "prusaslicer-2.9.6-beds.3mf"];
 
 /**
  * A project from a slicer that isn't converted: the PrusaSlicer fixture with its settings file's first line naming SuperSlicer,

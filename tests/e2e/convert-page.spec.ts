@@ -224,6 +224,31 @@ test("a PrusaSlicer scene keeps all four filaments in order with their colors, a
   expect(savedNames(session)).toEqual(["prusaslicer-2.9.6-scene_U1.3mf"]);
 });
 
+test("a PrusaSlicer file is compared with its preset from the extension's own copy of the data, and a Bambu Studio file loads none", async () => {
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", fixturePath("prusaslicer-2.9.6.3mf"));
+  await expect(page.locator(".converted strong")).toHaveText("prusaslicer-2.9.6_U1.3mf");
+  // The preset bundle for the release that saved the project, read from the extension's files and nowhere else.
+  expect(session.requests).toContain(`${session.origin}/profiles/sources/prusaslicer/PrusaResearch-2.9.6.json`);
+  expectOnlyThese(session.requests, session.origin);
+  const notes = page.locator(".converted .notes li");
+  await expect(notes.filter({ hasText: "compared with PrusaSlicer's" })).toHaveCount(1);
+  await expect(notes.filter({ hasText: "isn't in Prusa Research's presets" })).toHaveCount(0);
+
+  const before = session.requests.length;
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted strong")).toHaveText(["prusaslicer-2.9.6_U1.3mf", SAMPLE.replace(/\.3mf$/, "_U1.3mf")]);
+  expect(session.requests.slice(before).filter((url) => url.includes("/profiles/sources/"))).toEqual([]);
+});
+
+test("a PrusaSlicer project on several beds converts, and the library's note about plates shows with the others", async () => {
+  const page = await session.open("convert.html");
+  await page.setInputFiles("#file", fixturePath("prusaslicer-2.9.6-beds.3mf"));
+  await expect(page.locator(".converted strong")).toHaveText("prusaslicer-2.9.6-beds_U1.3mf");
+  await expect(page.locator(".converted .filaments li")).toHaveCount(4);
+  await expect(page.locator(".converted .notes li").filter({ hasText: "4 beds become 4 plates" })).toHaveCount(1);
+});
+
 test("a match that wasn't plain says why under the profile, and a plain one says nothing", async () => {
   const entries = unzipSync(fixture(SAMPLE));
   const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown>;
