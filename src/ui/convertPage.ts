@@ -365,6 +365,12 @@ manualPicker.addEventListener("change", () => {
 });
 
 need("#choose").addEventListener("click", () => void pickFiles(manualPicker).then(convertPicked));
+// Results are only what this page has shown: clearing them removes nothing saved, and a save still in progress carries on.
+need("#clear-results").addEventListener("click", () => {
+  results.replaceChildren();
+  resultsSection.hidden = true;
+  need("#open-tip").hidden = true;
+});
 stop.addEventListener("click", () => stopConverting());
 
 // The whole page takes a drop: a file dropped beside the zone would otherwise make the browser leave the page.

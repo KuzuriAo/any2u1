@@ -189,6 +189,25 @@ test("a name that could turn itself around on screen is shown without the marks 
   await expect(page.locator(".failed strong")).toHaveText("reportfdp.3mf");
 });
 
+test("Clear empties the results without a reload, keeps the saved files, and the next file still shows", async () => {
+  const page = await session.open("convert.html");
+  await expect(page.locator("#results-section")).toBeHidden();
+  await page.setInputFiles("#file", [{ name: SAMPLE, mimeType: "model/3mf", buffer: fixture(SAMPLE) }, { name: "not-a-3mf.3mf", mimeType: "text/plain", buffer: Buffer.from("nothing") }]);
+  await expect(page.locator(".converted")).toHaveCount(1);
+  await expect(page.locator(".failed")).toHaveCount(1);
+  await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf"));
+  await page.locator("#clear-results").click();
+  await expect(page.locator("#results-section")).toBeHidden();
+  await expect(page.locator("#open-tip")).toBeHidden();
+  await expect(page.locator("#results li")).toHaveCount(0);
+  expect(savedNames(session)).toEqual([SAMPLE.replace(/\.3mf$/, "_U1.3mf")]);
+
+  await page.setInputFiles("#file", fixturePath("elegoo-slicer-1.5.3.5-scene.3mf"));
+  await expect(page.locator(".converted strong")).toHaveText("elegoo-slicer-1.5.3.5-scene_U1.3mf");
+  await expect(page.locator("#results-section")).toBeVisible();
+  await expect(page.locator("#open-tip")).toBeVisible();
+});
+
 test("after saving: show in folder, and the warning about how to open the file", async () => {
   const page = await session.open("convert.html");
   await expect(page.locator("#open-tip")).toBeHidden();
