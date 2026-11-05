@@ -63,6 +63,22 @@ api.permissions.onRemoved?.addListener(() => void drawHosts());
 api.permissions.onAdded?.addListener(() => void drawHosts());
 
 need("#diagnostics").append(reportBlock(diagnosticsReport(environment()), "Copy the versions"));
+/** Settings open in a tab of their own. This closes it, so nobody has to know to close the tab. */
+need("#close").addEventListener("click", () => {
+  void (async () => {
+    try {
+      const tab = await api.tabs.getCurrent();
+      if (tab?.id !== undefined) {
+        await api.tabs.remove(tab.id);
+        return;
+      }
+    } catch {
+      // Falls through to closing the page itself.
+    }
+    window.close();
+  })();
+});
+
 need("#version").textContent = `any2u1 ${api.runtime.getManifest().version}`;
 void draw();
 void drawHosts();
