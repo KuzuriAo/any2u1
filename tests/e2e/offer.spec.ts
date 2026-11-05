@@ -76,6 +76,23 @@ test("a row that goes to the picker can say where the browser saved the file", a
   await expect(row.locator("button.pick")).toBeVisible();
 });
 
+test("a file chosen for a waiting row shows its progress on that row, in place", async () => {
+  await downloadBlob(session, site, "page-built.3mf", fixture(SAMPLE));
+  const offer = await session.offerWindow();
+  await offer.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { rowSteps: string[] }).rowSteps = seen;
+    new MutationObserver(() => seen.push(document.querySelector(".row .working")?.textContent ?? "")).observe(document.querySelector("#pending")!, { childList: true, characterData: true, subtree: true });
+  });
+  const [chooser] = await Promise.all([offer.waitForEvent("filechooser"), offer.locator(".row button.pick").click()]);
+  await chooser.setFiles(fixturePath(SAMPLE));
+  await expect(offer.locator(".converted strong")).toBeVisible();
+  const text = (await offer.evaluate(() => (window as unknown as { rowSteps: string[] }).rowSteps)).join("\n");
+  expect(text).toContain("Reading the file...");
+  expect(text).toMatch(/Converting · Opening the project · \d+ s/);
+  expect(text).toMatch(/Converting · Writing the file · \d+ s/);
+});
+
 test("a file built in the page: straight to the picker, no prompt and no fetch", async () => {
   await downloadBlob(session, site, "page-built.3mf", fixture(SAMPLE));
   const offer = await session.offerWindow();
