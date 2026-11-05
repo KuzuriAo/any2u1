@@ -60,9 +60,9 @@ export function safeFileName(name: string): string {
   return withinBytes(cleaned, MAX_STEM_BYTES).replace(/[.\s]+$/, "");
 }
 
-/** `thing.3mf` and `thing` both become `thing_U1.3mf`. */
+/** `thing.3mf` and `thing` both become `thing_U1.3mf`. A name this extension already made keeps its one `_U1`, not two. */
 export function outputName(name: string): string {
-  const stem = safeFileName(baseName(name).replace(/\.3mf$/i, ""));
+  const stem = safeFileName(baseName(name).replace(/\.3mf$/i, "")).replace(/_U1$/, "");
   return `${stem || "model"}_U1.3mf`;
 }
 

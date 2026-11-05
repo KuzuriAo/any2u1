@@ -39,6 +39,13 @@ describe("outputName", () => {
     expect(outputName("thing")).toBe("thing_U1.3mf");
     expect(outputName("a.gcode.3mf")).toBe("a.gcode_U1.3mf");
   });
+  it("doesn't pile a second _U1 on a file this extension already made", () => {
+    expect(outputName("0042 Desk Lamp AMS_U1.3mf")).toBe("0042 Desk Lamp AMS_U1.3mf");
+    expect(outputName("desk_U1")).toBe("desk_U1.3mf");
+    expect(outputName("_U1.3mf")).toBe("model_U1.3mf");
+    expect(outputName("desk_U1_copy.3mf")).toBe("desk_U1_copy_U1.3mf");
+    expect(outputName("desk_u1.3mf")).toBe("desk_u1_U1.3mf");
+  });
   it("can't be steered out of the downloads folder", () => {
     expect(outputName("../../etc/passwd.3mf")).toBe("passwd_U1.3mf");
     expect(outputName("..\\..\\evil.3mf")).toBe("evil_U1.3mf");
