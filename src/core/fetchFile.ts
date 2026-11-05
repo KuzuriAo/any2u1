@@ -12,7 +12,7 @@ export type FetchFailure =
 
 export type FetchResult = { ok: true; bytes: Uint8Array } | { ok: false; failure: FetchFailure };
 
-export type FetchLimits = { maxBytes?: number; idleMs?: number; signal?: AbortSignal };
+export type FetchLimits = { maxBytes?: number; idleMs?: number; signal?: AbortSignal; /** Called with the bytes received so far, after each piece. */ onProgress?: (received: number) => void };
 
 const ZIP_START = [0x50, 0x4b, 0x03, 0x04];
 
@@ -21,7 +21,7 @@ function startsLikeZip(bytes: Uint8Array): boolean {
 }
 
 /** Joins chunks, stopping at `maxBytes`. Null if the file is larger, or stops arriving. */
-async function readAll(response: Response, controller: AbortController, maxBytes: number, idleMs: number): Promise<Uint8Array | null> {
+async function readAll(response: Response, controller: AbortController, maxBytes: number, idleMs: number, onProgress?: (received: number) => void): Promise<Uint8Array | null> {
   const reader = response.body?.getReader();
   if (!reader) return new Uint8Array(await response.arrayBuffer());
   const chunks: Uint8Array[] = [];
@@ -45,6 +45,7 @@ async function readAll(response: Response, controller: AbortController, maxBytes
       return null;
     }
     chunks.push(next.value);
+    onProgress?.(total);
   }
   const bytes = new Uint8Array(total);
   let offset = 0;
@@ -68,14 +69,14 @@ export async function fetchFile(url: string, expectedSize: number | undefined, l
   const stop = () => controller.abort();
   signal?.addEventListener("abort", stop, { once: true });
   try {
-    const result = await fetchBounded(url, expectedSize, maxBytes, limits.idleMs ?? FETCH_IDLE_MS, controller, fetcher);
+    const result = await fetchBounded(url, expectedSize, maxBytes, limits.idleMs ?? FETCH_IDLE_MS, controller, fetcher, limits.onProgress);
     return signal?.aborted ? { ok: false, failure: "stopped" } : result;
   } finally {
     signal?.removeEventListener("abort", stop);
   }
 }
 
-async function fetchBounded(url: string, expectedSize: number | undefined, maxBytes: number, idleMs: number, controller: AbortController, fetcher: typeof fetch): Promise<FetchResult> {
+async function fetchBounded(url: string, expectedSize: number | undefined, maxBytes: number, idleMs: number, controller: AbortController, fetcher: typeof fetch, onProgress?: (received: number) => void): Promise<FetchResult> {
   let response: Response;
   try {
     response = await fetcher(url, {
@@ -98,7 +99,7 @@ async function fetchBounded(url: string, expectedSize: number | undefined, maxBy
       controller.abort();
       return { ok: false, failure: "wrong-file" };
     }
-    const bytes = await readAll(response, controller, maxBytes, idleMs);
+    const bytes = await readAll(response, controller, maxBytes, idleMs, onProgress);
     if (bytes === null || !startsLikeZip(bytes)) return { ok: false, failure: "wrong-file" };
     if (expectedSize !== undefined && expectedSize > 0 && bytes.byteLength !== expectedSize) return { ok: false, failure: "wrong-file" };
     return { ok: true, bytes };

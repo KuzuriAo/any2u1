@@ -189,6 +189,40 @@ test("a name that could turn itself around on screen is shown without the marks 
   await expect(page.locator(".failed strong")).toHaveText("reportfdp.3mf");
 });
 
+test("a conversion names each step as it goes, then clears the line", async () => {
+  const page = await session.open("convert.html");
+  await expect(page.locator("#options-version")).toContainText("Snapmaker Orca");
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { steps: string[] }).steps = seen;
+    new MutationObserver(() => seen.push(document.querySelector("#status")?.textContent ?? "")).observe(document.querySelector("#status")!, { childList: true, characterData: true, subtree: true });
+  });
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted strong")).toBeVisible();
+  const steps = await page.evaluate(() => (window as unknown as { steps: string[] }).steps);
+  const text = steps.join("\n");
+  for (const step of ["Reading ", "Opening the project", "Matching the profile", "Loading the profile", "Merging the settings", "Writing the file"]) expect(text, step).toContain(step);
+  // In the order a conversion does them.
+  expect(text.indexOf("Opening the project")).toBeLessThan(text.indexOf("Matching the profile"));
+  expect(text.indexOf("Matching the profile")).toBeLessThan(text.indexOf("Writing the file"));
+  await expect(page.locator("#status")).toBeEmpty();
+});
+
+test("a zip says which file of how many it is on", async () => {
+  const page = await session.open("convert.html");
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { steps: string[] }).steps = seen;
+    new MutationObserver(() => seen.push(document.querySelector("#status")?.textContent ?? "")).observe(document.querySelector("#status")!, { childList: true, characterData: true, subtree: true });
+  });
+  await page.setInputFiles("#file", zipFile("two.zip", { "a/one.3mf": fixture(SAMPLE), "b/two.3mf": fixture(SAMPLE) }));
+  await expect(page.locator(".converted")).toHaveCount(2);
+  const text = (await page.evaluate(() => (window as unknown as { steps: string[] }).steps)).join("\n");
+  expect(text).toContain("Looking inside the file");
+  expect(text).toContain("File 1 of 2 · Writing the file");
+  expect(text).toContain("File 2 of 2 · Writing the file");
+});
+
 test("Clear empties the results without a reload, keeps the saved files, and the next file still shows", async () => {
   const page = await session.open("convert.html");
   await expect(page.locator("#results-section")).toBeHidden();

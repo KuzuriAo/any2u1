@@ -30,6 +30,8 @@
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
 main { max-width: 38rem; margin: 0 auto; padding: 2rem 1.25rem; }
 h1 { font-size: 1.5rem; margin: 0 0 1.25rem; line-height: 1.25; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+.page-head h1 { margin: 0; }
 h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 section { margin-bottom: 1.5rem; }
@@ -39,7 +41,16 @@ a { color: var(--accent); }
 .tip { background: var(--tip); color: var(--tip-ink); border-radius: 6px; padding: 0.55rem 0.7rem; font-size: 0.87rem; margin-top: 0.6rem; }
 .progress { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.8rem; margin-bottom: 1rem; }
 .progress:has(#status:empty) { display: none; }
-#status { color: var(--muted); margin: 0; overflow-wrap: anywhere; }
+#status { color: var(--muted); margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+/* A bar that moves while a conversion runs: the library can't say how far along it is, so it shows only that it is working. */
+.activity { flex-basis: 100%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; position: relative; }
+.activity span { position: absolute; top: 0; bottom: 0; left: 0; width: 30%; border-radius: 2px; background: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .activity span { animation: activity 1.5s ease-in-out infinite; }
+}
+@keyframes activity { from { left: -30%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .activity { display: none; } }
+.working { font-variant-numeric: tabular-nums; }
 
 button { font: inherit; border-radius: 6px; padding: 0.45rem 0.8rem; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); max-width: 100%; overflow-wrap: anywhere; }
 button:hover { border-color: var(--muted); }

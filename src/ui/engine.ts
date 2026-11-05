@@ -8,6 +8,7 @@ import type { ReportFilament } from "any2orca";
 import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
 import { is3mfName, outputName } from "../core/names";
+import { stageText } from "../core/progress";
 import { activeRelease } from "../core/releases";
 import { convertOptions, describePrinter, type ConvertSettings } from "../core/settings";
 
@@ -100,8 +101,12 @@ function notesFor(warnings: readonly string[], fallback: readonly string[] = [],
   return notes;
 }
 
-async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSettings, releases: readonly string[]): Promise<Converted> {
+/** Told what a conversion is doing, in words: the library reports four stages, and the page adds its own. */
+export type Step = (text: string) => void;
+
+async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSettings, releases: readonly string[], onStep: Step): Promise<Converted> {
   const converter = start();
+  onStep("Opening the project");
   const { project, inspection } = await guarded(converter.open(bytes, { transfer: true }));
   try {
     const release = activeRelease(convert.snapmakerOrcaVersion, releases);
@@ -109,7 +114,7 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
     const nozzle = inspection.matchNozzleDiameter ?? "0.4";
     const { profiles } = await guarded(converter.listProfiles({ nozzleDiameter: nozzle, ...(release ? { snapmakerOrcaVersion: release } : {}) }));
     const highFlowSupported = profiles.some((profile) => profile.highFlowSupported);
-    const { output, report } = await guarded(project.convert(convertOptions(convert, releases, highFlowSupported)));
+    const { output, report } = await guarded(project.convert({ ...convertOptions(convert, releases, highFlowSupported), onProgress: (stage) => onStep(stageText(stage)) }));
     return {
       source,
       name: outputName(source),
@@ -128,22 +133,24 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
 }
 
 /** A 3MF, or a zip of them: one outcome per 3MF. One bad file doesn't stop the rest of a zip. */
-export async function convertFile(name: string, bytes: Uint8Array, convert: ConvertSettings): Promise<Outcome[]> {
+export async function convertFile(name: string, bytes: Uint8Array, convert: ConvertSettings, onStep: Step = () => {}): Promise<Outcome[]> {
   // The worker takes over a file's memory, which leaves its length at 0, so sizes are read before the hand-over.
   const size = bytes.byteLength;
   if (size > MAX_INPUT_BYTES) return [{ source: name, error: "This file is too large to convert in a browser: the limit is 1 GB.", code: "input_too_large", size }];
   try {
     const releases = await listReleases();
     // Unpacking twice is wasted work on a large 3MF, so only a file that may be a zip is checked for one.
+    if (!is3mfName(name)) onStep("Looking inside the file");
     const nested = is3mfName(name) ? null : await guarded(start().unwrapBundle(bytes));
-    if (nested === null) return [await convertOne(name, bytes, convert, releases)];
+    if (nested === null) return [await convertOne(name, bytes, convert, releases, onStep)];
     const projects = nested.filter((entry) => !entry.name.startsWith("._"));
     if (projects.length > MAX_FILES_IN_ZIP) return [{ source: name, error: `This zip holds ${projects.length} 3MF files; the limit is ${MAX_FILES_IN_ZIP}.`, code: "zip_too_many_files", size }];
     const outcomes: Outcome[] = [];
-    for (const entry of projects) {
+    for (const [index, entry] of projects.entries()) {
       const entrySize = entry.bytes.byteLength;
+      const which = projects.length > 1 ? `File ${index + 1} of ${projects.length} · ` : "";
       try {
-        outcomes.push(await convertOne(entry.name, entry.bytes, convert, releases));
+        outcomes.push(await convertOne(entry.name, entry.bytes, convert, releases, (text) => onStep(which + text)));
       } catch (error) {
         outcomes.push(failure(entry.name, error, entrySize));
         if (error instanceof Error && (error.message === CRASHED || error.message === STOPPED)) break;

@@ -4,6 +4,7 @@ import { api } from "../browser";
 import { fetchFile, type FetchFailure } from "../core/fetchFile";
 import { MAX_FILES_AT_ONCE, MAX_INPUT_BYTES } from "../core/limits";
 import { displayName } from "../core/names";
+import { elapsedText, receivedText } from "../core/progress";
 import { isPendingKey, listPending, removePending, type PendingDownload } from "../core/pending";
 import { deliveryOf, type Delivery } from "../core/recognize";
 import { activeRelease } from "../core/releases";
@@ -25,6 +26,7 @@ const rowPicker = need<HTMLInputElement>("#row-file");
 const dropZone = need<HTMLElement>("#drop");
 const status = need<HTMLElement>("#status");
 const stop = need<HTMLButtonElement>("#stop");
+const activity = need<HTMLElement>("#activity");
 const options = need<HTMLElement>("#options");
 
 if (new URLSearchParams(location.search).get("view") === "window") document.body.classList.add("small");
@@ -59,6 +61,15 @@ function say(message: string): void {
 function setRow(id: number, state: RowState): void {
   rows.set(id, state);
   void drawPending();
+}
+
+/** Changes the words on a row that's working, in place: redrawing the list every second would take a button from under a click. */
+function sayOnRow(id: number, message: string): void {
+  const state = rows.get(id);
+  if (state?.phase !== "working") return;
+  state.message = message;
+  const line = pendingList.querySelector(`[data-id="${id}"] .working`);
+  if (line) line.textContent = message;
 }
 
 /** Waits until the browser is done with a download, whether it was saved or not. */
@@ -185,14 +196,30 @@ function showOutcome(outcome: Outcome, site: string | null = null): boolean {
 /** "unsupported" means a readable project from a slicer the library doesn't convert: another copy of it won't help. */
 type Result = "converted" | "unsupported" | "stopped" | "failed";
 
-/** Converts now; the caller has its turn. */
-async function convertNow(name: string, bytes: Uint8Array, site: string | null): Promise<Result> {
+/**
+ * Converts now; the caller has its turn. While it runs, the line says which step it is on and how long it has been going,
+ * so that a long one is seen to be alive. `report` gets the same words, for the row of a waiting download.
+ */
+async function convertNow(name: string, bytes: Uint8Array, site: string | null, report?: (message: string) => void): Promise<Result> {
   const size = bytes.byteLength;
-  say(`Converting ${displayName(name)}...`);
+  const shown = displayName(name);
+  const started = Date.now();
+  let step = "Starting";
+  const update = () => {
+    const detail = `${step} · ${elapsedText(Date.now() - started)}`;
+    say(`Converting ${shown} · ${detail}`);
+    report?.(`Converting · ${detail}`);
+  };
+  update();
   stop.hidden = false;
+  activity.hidden = false;
+  const clock = setInterval(update, 1000);
   try {
     const settings = await loadSettings();
-    const outcomes = await convertFile(name, bytes, settings.convert);
+    const outcomes = await convertFile(name, bytes, settings.convert, (text) => {
+      step = text;
+      update();
+    });
     const converted = outcomes.map((outcome) => showOutcome(outcome, site)).some(Boolean);
     if (outcomes.length === 0) showOutcome({ source: name, error: "This zip has no 3MF file inside.", code: "zip_no_3mf", size }, site);
     if (converted) return "converted";
@@ -200,24 +227,30 @@ async function convertNow(name: string, bytes: Uint8Array, site: string | null):
     if (codes.includes("stopped")) return "stopped";
     return codes.length > 0 && codes.every((code) => code === "unsupported_slicer") ? "unsupported" : "failed";
   } finally {
+    clearInterval(clock);
     stop.hidden = true;
+    activity.hidden = true;
     say("");
   }
 }
 
-function convertAndShow(name: string, bytes: Uint8Array, site: string | null = null): Promise<Result> {
-  return inTurn(() => convertNow(name, bytes, site));
+function convertAndShow(name: string, bytes: Uint8Array, site: string | null = null, report?: (message: string) => void): Promise<Result> {
+  return inTurn(() => convertNow(name, bytes, site, report));
 }
 
 /** Files handed over by the user. Sizes are checked before a large file is read into memory. */
-async function convertPicked(files: File[], site: string | null = null): Promise<boolean> {
+async function convertPicked(files: File[], site: string | null = null, report?: (message: string) => void): Promise<boolean> {
   let converted = false;
   for (const file of files.slice(0, MAX_FILES_AT_ONCE)) {
     if (file.size > MAX_INPUT_BYTES) {
       showOutcome({ source: file.name, error: "This file is too large to convert in a browser: the limit is 1 GB.", code: "input_too_large", size: file.size }, site);
       continue;
     }
-    if ((await convertAndShow(file.name, new Uint8Array(await file.arrayBuffer()), site)) === "converted") converted = true;
+    // Reading a large file off the disk takes a while before anything can start.
+    say(`Reading ${displayName(file.name)}...`);
+    report?.("Reading the file...");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if ((await convertAndShow(file.name, bytes, site, report)) === "converted") converted = true;
   }
   if (files.length > MAX_FILES_AT_ONCE) say(`Only the first ${MAX_FILES_AT_ONCE} files were converted.`);
   return converted;
@@ -238,11 +271,20 @@ async function fetchAndConvert(entry: PendingDownload, url: string, size: number
   try {
     result = await inTurn(async () => {
       if (controller.signal.aborted) return "stopped";
-      setRow(entry.id, { phase: "working", message: "Getting the file..." });
-      const fetched = await fetchFile(url, size, { signal: controller.signal });
+      setRow(entry.id, { phase: "working", message: `Getting the file... ${receivedText(0, size)}` });
+      let lastShown = 0;
+      const fetched = await fetchFile(url, size, {
+        signal: controller.signal,
+        // Several times a second is plenty to read, and a piece can arrive every few milliseconds.
+        onProgress: (received) => {
+          if (Date.now() - lastShown < 250) return;
+          lastShown = Date.now();
+          sayOnRow(entry.id, `Getting the file... ${receivedText(received, size)}`);
+        },
+      });
       if (!fetched.ok) return fetched.failure;
       setRow(entry.id, { phase: "working", message: "Converting..." });
-      return convertNow(entry.name, fetched.bytes, entry.site);
+      return convertNow(entry.name, fetched.bytes, entry.site, (message) => sayOnRow(entry.id, message));
     });
   } finally {
     if (fetches.get(entry.id) === controller) fetches.delete(entry.id);
@@ -294,8 +336,8 @@ function allowHost(entry: PendingDownload, delivery: Extract<Delivery, { kind: "
 function pickForRow(entry: PendingDownload): void {
   void pickFiles(rowPicker).then(async (files) => {
     if (files.length === 0) return;
-    setRow(entry.id, { phase: "working", message: "Converting..." });
-    if (await convertPicked(files, entry.site)) await finish(entry.id);
+    setRow(entry.id, { phase: "working", message: "Reading the file..." });
+    if (await convertPicked(files, entry.site, (message) => sayOnRow(entry.id, message))) await finish(entry.id);
     else setRow(entry.id, { phase: "pick", message: "That file didn't convert. You can choose another." });
   });
 }

@@ -106,6 +106,18 @@ describe("fetchFile", () => {
     expect(await fetchFile("https://x.example/a", undefined, { signal: caller.signal }, fetcher)).toEqual({ ok: false, failure: "stopped" });
     expect(called).toBe(false);
   });
+  it("reports what has arrived after each piece", async () => {
+    const seen: number[] = [];
+    const pieces = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(ZIP);
+        controller.enqueue(new Uint8Array(3));
+        controller.close();
+      },
+    });
+    await fetchFile("https://x.example/a", undefined, { onProgress: (received) => seen.push(received) }, answering(pieces));
+    expect(seen).toEqual([ZIP.byteLength, ZIP.byteLength + 3]);
+  });
   it("gives up on a file that stops arriving", async () => {
     const stuck = new ReadableStream<Uint8Array>({ start: (controller) => controller.enqueue(ZIP) });
     expect(await fetchFile("https://x.example/a", undefined, { idleMs: 20 }, answering(stuck))).toEqual({ ok: false, failure: "wrong-file" });

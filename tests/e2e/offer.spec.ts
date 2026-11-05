@@ -94,12 +94,39 @@ test("a server that never finishes sending: Dismiss stays, and ends the fetch", 
   await site.download(session, "/trickle/desk.3mf");
   const offer = await session.offerWindow();
   await offer.locator("button.primary").click();
-  await expect(offer.locator(".row .working")).toHaveText("Getting the file...");
+  await expect(offer.locator(".row .working")).toHaveText(/^Getting the file\.\.\./);
   await expect.poll(() => site.trickling()).toBe(1);
   await offer.locator(".row button.dismiss").click();
   await expect(offer.locator(".row")).toHaveCount(0);
   await expect.poll(() => site.trickling()).toBe(0);
   expect(await session.pendingCount()).toBe(0);
+});
+
+test("a file being fetched shows how much has arrived, against the size the browser saved", async () => {
+  await site.download(session, "/trickle/desk.3mf");
+  const offer = await session.offerWindow();
+  await offer.locator("button.primary").click();
+  const line = offer.locator(".row .working");
+  await expect(line).toHaveText(/^Getting the file\.\.\. \d+ B of 66 KB$/);
+  const first = await line.textContent();
+  await expect.poll(() => line.textContent(), { timeout: 8000 }).not.toBe(first);
+  await expect(line).toHaveText(/^Getting the file\.\.\. \d+ B of 66 KB$/);
+  await offer.locator(".row button.dismiss").click();
+});
+
+test("a download that's converting shows its step on its row, in place", async () => {
+  await site.download(session, "/open/desk.3mf");
+  const offer = await session.offerWindow();
+  await offer.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { rowSteps: string[] }).rowSteps = seen;
+    new MutationObserver(() => seen.push(document.querySelector(".row .working")?.textContent ?? "")).observe(document.querySelector("#pending")!, { childList: true, characterData: true, subtree: true });
+  });
+  await offer.locator("button.primary").click();
+  await expect(offer.locator(".converted strong")).toHaveText("desk_U1.3mf");
+  const text = (await offer.evaluate(() => (window as unknown as { rowSteps: string[] }).rowSteps)).join("\n");
+  expect(text).toMatch(/Converting · Opening the project · \d+ s/);
+  expect(text).toMatch(/Converting · Writing the file · \d+ s/);
 });
 
 test("one file is fetched at a time, and the next starts when the first is dismissed", async () => {
@@ -108,13 +135,13 @@ test("one file is fetched at a time, and the next starts when the first is dismi
   await site.download(session, "/trickle/two.3mf");
   await expect(offer.locator(".row button.primary")).toHaveCount(2);
   await offer.locator(".row button.primary").first().click();
-  await expect(offer.locator(".row .working").first()).toHaveText("Getting the file...");
+  await expect(offer.locator(".row .working").first()).toHaveText(/^Getting the file\.\.\./);
   await offer.locator(".row button.primary").click();
-  await expect(offer.locator(".row .working")).toHaveText(["Getting the file...", "Waiting for the files ahead of it..."]);
+  await expect(offer.locator(".row .working")).toHaveText([/^Getting the file\.\.\./, "Waiting for the files ahead of it..."]);
   await offer.waitForTimeout(1500);
   expect(site.trickling()).toBe(1);
   await offer.locator(".row button.dismiss").first().click();
-  await expect(offer.locator(".row .working")).toHaveText("Getting the file...");
+  await expect(offer.locator(".row .working")).toHaveText(/^Getting the file\.\.\./);
   await expect.poll(() => site.countFor("/trickle/two.3mf")).toBe(2);
   // The server hears the first connection close a moment after the page has let it go.
   await expect.poll(() => site.trickling()).toBe(1);
@@ -248,6 +275,13 @@ test("the button with nothing waiting opens the convert page in a tab", async ()
   const page = await session.context.waitForEvent("page", { predicate: (p) => p.url().endsWith("/convert.html") });
   await expect(page.locator("h1")).toBeVisible();
   expect(offerWindows(session)).toEqual([]);
+});
+
+test("the settings page has a Close button that closes its tab", async () => {
+  const page = await session.open("settings.html");
+  await expect(page.locator("#close")).toBeVisible();
+  await Promise.all([page.waitForEvent("close"), page.locator("#close").click()]);
+  expect(page.isClosed()).toBe(true);
 });
 
 test("the settings page tells people to pin the button when they choose the badge", async () => {

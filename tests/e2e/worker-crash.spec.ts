@@ -61,6 +61,21 @@ test("a worker that fails mid-conversion: the file gets a message, and the next 
   expect(await page.evaluate(() => (window as unknown as { workers: Worker[] }).workers.length)).toBe(2);
 });
 
+test("a conversion that takes a while shows its step and a clock that ticks, and a bar that goes when it ends", async () => {
+  const page = await openWithWorkerHook();
+  await expect(page.locator("#activity")).toBeHidden();
+  await page.evaluate(() => ((window as unknown as { swallow: boolean }).swallow = true));
+  await page.setInputFiles("#file", { name: "slow.3mf", mimeType: "model/3mf", buffer: fixture(SAMPLE) });
+  await expect(page.locator("#status")).toHaveText(/^Converting slow\.3mf · Opening the project · \d+ s$/);
+  await expect(page.locator("#activity")).toBeVisible();
+  const first = await page.locator("#status").textContent();
+  await expect.poll(() => page.locator("#status").textContent(), { timeout: 5000 }).not.toBe(first);
+  await expect(page.locator("#status")).toHaveText(/ · [1-9]\d* s$/);
+  await page.locator("#stop").click();
+  await expect(page.locator("#activity")).toBeHidden();
+  await expect(page.locator("#status")).toBeEmpty();
+});
+
 test("Stop ends a conversion that doesn't finish, says so without a report, and the next file converts", async () => {
   const page = await openWithWorkerHook();
   await expect(page.locator("#stop")).toBeHidden();
