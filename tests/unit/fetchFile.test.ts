@@ -59,6 +59,53 @@ describe("fetchFile", () => {
     expect(result).toEqual({ ok: false, failure: "wrong-file" });
     expect(pulled).toBeLessThan(20);
   });
+  it("stops reading once past the size the browser saved, well before the size limit", async () => {
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(ZIP);
+      },
+    });
+    expect(await fetchFile("https://x.example/a", ZIP.byteLength * 3, {}, answering(endless))).toEqual({ ok: false, failure: "wrong-file" });
+    expect(pulled).toBeLessThan(10);
+  });
+  it("refuses a declared size over the saved size without reading", async () => {
+    expect(await fetchFile("https://x.example/a", ZIP.byteLength, {}, answering(ZIP, { headers: { "content-length": "999999" } }))).toEqual({ ok: false, failure: "wrong-file" });
+  });
+  it("stops when the caller gives up, and says so", async () => {
+    // Like a browser's fetch: the body stops with an error once the request's signal aborts.
+    let aborted = false;
+    const fetcher = (async (_: unknown, init?: RequestInit) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(ZIP);
+          init?.signal?.addEventListener("abort", () => {
+            aborted = true;
+            controller.error(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        },
+      });
+      return new Response(body);
+    }) as typeof fetch;
+    const caller = new AbortController();
+    const result = fetchFile("https://x.example/a", undefined, { idleMs: 60_000, signal: caller.signal }, fetcher);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    caller.abort();
+    expect(await result).toEqual({ ok: false, failure: "stopped" });
+    expect(aborted).toBe(true);
+  });
+  it("does nothing for a caller that already gave up", async () => {
+    let called = false;
+    const fetcher = (async () => {
+      called = true;
+      return new Response(ZIP);
+    }) as typeof fetch;
+    const caller = new AbortController();
+    caller.abort();
+    expect(await fetchFile("https://x.example/a", undefined, { signal: caller.signal }, fetcher)).toEqual({ ok: false, failure: "stopped" });
+    expect(called).toBe(false);
+  });
   it("gives up on a file that stops arriving", async () => {
     const stuck = new ReadableStream<Uint8Array>({ start: (controller) => controller.enqueue(ZIP) });
     expect(await fetchFile("https://x.example/a", undefined, { idleMs: 20 }, answering(stuck))).toEqual({ ok: false, failure: "wrong-file" });

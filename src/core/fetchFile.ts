@@ -6,11 +6,13 @@ export type FetchFailure =
   /** The browser refused to let the extension read it: access to the host may fix that. */
   | "blocked"
   /** It answered with an error, a web page, the wrong size or something too large: access won't help. */
-  | "wrong-file";
+  | "wrong-file"
+  /** The caller gave up on it. */
+  | "stopped";
 
 export type FetchResult = { ok: true; bytes: Uint8Array } | { ok: false; failure: FetchFailure };
 
-export type FetchLimits = { maxBytes?: number; idleMs?: number };
+export type FetchLimits = { maxBytes?: number; idleMs?: number; signal?: AbortSignal };
 
 const ZIP_START = [0x50, 0x4b, 0x03, 0x04];
 
@@ -58,8 +60,22 @@ async function readAll(response: Response, controller: AbortController, maxBytes
  * a cut-short address or a soft login wall, none of which `response.ok` shows.
  */
 export async function fetchFile(url: string, expectedSize: number | undefined, limits: FetchLimits = {}, fetcher: typeof fetch = fetch): Promise<FetchResult> {
-  const maxBytes = limits.maxBytes ?? MAX_INPUT_BYTES;
+  // A reply longer than the saved file is the wrong file, so reading stops there, not at the size limit.
+  const maxBytes = Math.min(limits.maxBytes ?? MAX_INPUT_BYTES, expectedSize !== undefined && expectedSize > 0 ? expectedSize : Infinity);
+  const { signal } = limits;
+  if (signal?.aborted) return { ok: false, failure: "stopped" };
   const controller = new AbortController();
+  const stop = () => controller.abort();
+  signal?.addEventListener("abort", stop, { once: true });
+  try {
+    const result = await fetchBounded(url, expectedSize, maxBytes, limits.idleMs ?? FETCH_IDLE_MS, controller, fetcher);
+    return signal?.aborted ? { ok: false, failure: "stopped" } : result;
+  } finally {
+    signal?.removeEventListener("abort", stop);
+  }
+}
+
+async function fetchBounded(url: string, expectedSize: number | undefined, maxBytes: number, idleMs: number, controller: AbortController, fetcher: typeof fetch): Promise<FetchResult> {
   let response: Response;
   try {
     response = await fetcher(url, {
@@ -82,7 +98,7 @@ export async function fetchFile(url: string, expectedSize: number | undefined, l
       controller.abort();
       return { ok: false, failure: "wrong-file" };
     }
-    const bytes = await readAll(response, controller, maxBytes, limits.idleMs ?? FETCH_IDLE_MS);
+    const bytes = await readAll(response, controller, maxBytes, idleMs);
     if (bytes === null || !startsLikeZip(bytes)) return { ok: false, failure: "wrong-file" };
     if (expectedSize !== undefined && expectedSize > 0 && bytes.byteLength !== expectedSize) return { ok: false, failure: "wrong-file" };
     return { ok: true, bytes };
