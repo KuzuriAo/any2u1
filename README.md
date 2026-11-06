@@ -63,7 +63,13 @@ Open them with **Settings** at the bottom of the convert page. The footer names 
 
 Turn the offer off, or choose how it comes: a small window (the default), or only a number on the toolbar button. For the number, pin the button to your toolbar, since the browser hides it on an unpinned extension. A download manager that takes over your downloads hides them from the browser, so they get no offer. For those, click the toolbar button and choose the saved file.
 
-<img width="360" alt="The small window, offering to convert two downloaded 3MF files" src="docs/assets/small-window.png" />
+The small window, offering two downloads:
+
+<img width="480" alt="The small window, offering to convert two downloaded 3MF files" src="docs/assets/small-window.png" />
+
+Only a number, here with one file waiting. Clicking the button opens the small window:
+
+<img width="364" alt="The any2u1 toolbar button with the number 1 on it" src="docs/assets/toolbar-number.png" />
 
 ### Saving
 
