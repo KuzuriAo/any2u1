@@ -259,7 +259,7 @@ test("the extension's own save gets no offer", async () => {
   expect(session.context.pages().filter((p) => p.url().includes("view=window"))).toEqual([]);
 });
 
-test("a file already set up for the U1 says so", async () => {
+test("a file already set up for the U1 says so, and nothing else", async () => {
   const page = await session.open("convert.html");
   const once = await convert(fixture(SAMPLE), { profiles: bundledProfileSource() });
   await page.setInputFiles("#file", { name: "already_U1.3mf", mimeType: "model/3mf", buffer: Buffer.from(once.output) });
@@ -267,6 +267,8 @@ test("a file already set up for the U1 says so", async () => {
   await expect(page.locator(".converted > *").nth(1)).toHaveClass("already");
   await expect(page.locator(".converted .already")).toContainText("already set up for the Snapmaker U1");
   await expect(page.locator(".converted > *").nth(2)).toHaveClass("saved");
+  // No note about "the creator" for the U1 layout the file already has.
+  await expect(page.locator(".converted .notes li")).toHaveCount(0);
 });
 
 test("a file dropped anywhere on the page converts, and the page stays", async () => {

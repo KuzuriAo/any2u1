@@ -139,7 +139,8 @@ export async function convertFile(name: string, bytes: Uint8Array, convert: Conv
   if (size > MAX_INPUT_BYTES) return [{ source: name, error: "This file is too large to convert in a browser: the limit is 1 GB.", code: "input_too_large", size }];
   try {
     const releases = await listReleases();
-    // Unpacking twice is wasted work on a large 3MF, so only a file that may be a zip is checked for one.
+    // Unpacking twice is wasted work on a large 3MF, so only a file that may be a zip is checked for one. The bytes are
+    // copied to the worker, not moved: when the file isn't a bundle (null), the same bytes are opened next.
     if (!is3mfName(name)) onStep("Looking inside the file");
     const nested = is3mfName(name) ? null : await guarded(start().unwrapBundle(bytes));
     if (nested === null) return [await convertOne(name, bytes, convert, releases, onStep)];

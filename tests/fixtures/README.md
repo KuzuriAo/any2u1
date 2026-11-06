@@ -1,6 +1,6 @@
 # Test files
 
-One small scene saved by each of the first five slicers the extension supports, and four PrusaSlicer projects. They come from the any2orca library's test suite, which has the details of how each was made. A project from a slicer it can't convert is made in the tests, from the first PrusaSlicer file.
+One small scene saved by each of the first five slicers the extension supports, and five PrusaSlicer projects. They come from the any2orca library's test suite, which has the details of how each was made. A project from a slicer it can't convert is made in the tests, from the first PrusaSlicer file.
 
 | File | Saved by |
 |---|---|
@@ -13,3 +13,4 @@ One small scene saved by each of the first five slicers the extension supports, 
 | `prusaslicer-2.9.6-fuzzy-skin.3mf` | PrusaSlicer 2.9.6: a box with fuzzy skin painted on two faces |
 | `prusaslicer-2.9.6-scene.3mf` | PrusaSlicer 2.9.6: four filaments (colors from the extruders), a multi-part object, painting, layer heights, a pause and a color change |
 | `prusaslicer-2.9.6-beds.3mf` | PrusaSlicer 2.9.6: the scene's four objects on four beds, one object each, the pause and the color change on the first |
+| `prusaslicer-2.9.7-beds-pauses.3mf` | PrusaSlicer 2.9.7: the four beds, each with its own known pauses (made from a 2.9.7 save with its pause list written as 2.9.7 writes it). Plate 1: a pause at 10.2 mm and a color change at 20.2 mm. Plate 2: a pause at 15.2 mm. Plate 3: none. Plate 4: a color change at 6.2 mm. Each color change becomes a pause at its height. |
