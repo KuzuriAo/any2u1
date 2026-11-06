@@ -1,10 +1,26 @@
+<img width="1280" height="720" alt="any2u1: Download a model. Get a Snapmaker U1 file. Converted on your device, nothing uploaded." src="docs/assets/readme-cover.png" />
+
 # any2u1
 
 A browser extension that turns a 3MF project into a Snapmaker U1 file, on any site that offers a 3MF download. Download a model the way you always do, and it offers to convert it. The conversion runs entirely on your device.
 
-It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio and PrusaSlicer. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
+It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio, PrusaSlicer and QIDI Studio. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
 
-It's tested on Chrome 156, Edge 156 and Firefox 159. It isn't in any extension store yet, so for now you load it yourself.
+It's tested on Chrome 156, Edge 156, Brave 1.99 and Firefox 159. It isn't in any extension store yet, so for now you load it yourself.
+
+## Supported slicers
+
+| Slicer | Tested with |
+|---|---|
+| Bambu Studio | 2.8.4 |
+| Creality Print | 7.3 |
+| Anycubic Slicer Next | 2.0 |
+| ElegooSlicer | 1.5 |
+| Flash Studio | 1.7 |
+| PrusaSlicer | 2.9.6 and 2.9.7 |
+| QIDI Studio | 2.7.2 |
+
+A project from another slicer gets a message naming it, and nothing is converted.
 
 ## Try it
 
@@ -17,7 +33,7 @@ npm install
 npm run build
 ```
 
-- **Chrome or Edge:** open `chrome://extensions` or `edge://extensions`, switch on **Developer mode**, click **Load unpacked**, and choose `dist/chrome`.
+- **Chrome, Edge or Brave:** open `chrome://extensions`, `edge://extensions` or `brave://extensions`, switch on **Developer mode**, click **Load unpacked**, and choose `dist/chrome`.
 - **Firefox:** open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and choose `dist/firefox/manifest.json`. Firefox removes a temporary add-on when it closes.
 
 ## How it works
@@ -26,12 +42,15 @@ npm run build
 2. Click **Convert for Snapmaker U1**. The extension gets the file in one of these ways:
    - If the server allows it, it fetches the file again, with no cookies. No prompt appears.
    - If the server refuses, it explains and gives you a choice: allow access to that one host, or choose the copy you saved.
-   - If the site built the file in the page, it can't be fetched again, so you choose the copy you saved.
-3. It saves `<name>_U1.3mf` next to your other downloads and shows any notes worth reading. **Show in folder** takes you to it.
+   - If the site built the file in the page, it can't be fetched again, so you choose the copy you saved. **Show where it was saved** opens the folder the browser put it in.
+3. While it converts, the page shows the step it's on, a clock and a moving bar. **Stop** ends a conversion that's taking too long.
+4. It saves `<name>_U1.3mf` next to your other downloads and shows any notes worth reading. **Show in folder** takes you to it. If you'd rather name each file and choose its folder, turn on **Ask where to save each converted file** in the settings, and the browser's Save dialog opens instead.
+
+<img width="640" alt="The small window offering to convert two downloaded 3MF files" src="docs/assets/offer.png" /> <img width="640" alt="A converted file, with every filament listed in the file's order and the name each had before" src="docs/assets/converted.png" />
 
 When you open the file in Snapmaker Orca, choose **Open as project**, or open it from an empty plate. "Import geometry only" drops the printer, filament and process settings.
 
-You can also click the toolbar button and hand it a 3MF, or a zip holding 3MF files, whenever you like. A zip download gets no automatic offer, because a download alone doesn't show what a zip holds.
+You can also click the toolbar button and hand it a 3MF, or a zip holding 3MF files, whenever you like. **Clear** empties the list of results; the files stay in your downloads. A zip download gets no automatic offer, because a download alone doesn't show what a zip holds.
 
 **Options**, the same ones whichever way you start: the Snapmaker Orca version, which toolheads have the high-flow hotend, hardened steel nozzles, and filament names for Snapmaker Space.
 
@@ -59,7 +78,7 @@ npm run test:e2e    # builds, then runs the browser tests in Chromium
 
 The browser tests need Playwright's Chromium once (`npx playwright install chromium`) and `openssl` to make a throwaway certificate for their local test site. They check, among other things, that the manifest asks for exactly the permissions above, and that the output is byte-for-byte what the library produces for the same file and options.
 
-`dist/chrome` also serves Edge; the Firefox build differs only in its manifest.
+`dist/chrome` also serves Edge and Brave; the Firefox build differs only in its manifest. The settings page names the commit a build was made from, so an older build still loaded in a browser is easy to tell apart.
 
 ## Building the release files
 
@@ -68,9 +87,13 @@ npm ci
 npm run package
 ```
 
-This builds, then writes three files to `dist`: `any2u1-<version>-chrome.zip` (for Chrome and Edge), `any2u1-<version>-firefox.zip`, and `any2u1-<version>-source.zip`, the committed source these are built from.
+This builds, then writes three files to `dist`: `any2u1-<version>-chrome.zip` (for Chrome, Edge and Brave), `any2u1-<version>-firefox.zip`, and `any2u1-<version>-source.zip`, the committed source these are built from.
 
 The build is reproducible. These two setups give byte-identical files: macOS on Apple silicon with Node.js 26.3.0 and npm 11.16.0, and Ubuntu 24.04 on ARM64 with Node.js 24.14.0 and npm 11.9.0, built as an ordinary user. To check a release, unpack its source zip, run the two commands above, and compare `dist/firefox` (or `dist/chrome`) with the unpacked extension. The build makes no requests beyond what `npm ci` downloads from the npm registry.
+
+## Security
+
+To report a security problem, see [SECURITY.md](SECURITY.md). Please don't open a public issue for it.
 
 ## License
 

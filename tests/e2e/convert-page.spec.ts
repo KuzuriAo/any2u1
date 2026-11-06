@@ -29,6 +29,7 @@ for (const name of [
   "anycubic-slicer-next-2.0.0.3-scene.3mf",
   "elegoo-slicer-1.5.3.5-scene.3mf",
   "flash-studio-1.7.20-scene.3mf",
+  "qidi-studio-2.7.2.73-scene.3mf",
   ...PRUSA_FIXTURES,
 ]) {
   test(`${name}: same bytes as the library, with nothing but the extension's own files requested`, async () => {
