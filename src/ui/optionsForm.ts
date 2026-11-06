@@ -10,17 +10,22 @@ const FILAMENT_CHOICES: Array<{ value: FilamentNames; label: string }> = [
   { value: "snapmaker", label: "Snapmaker" },
 ];
 
+/** The picker's value for "Newest": empty, so it can't be taken for a release number. */
+const NEWEST = "";
+
 function save(change: (convert: ConvertSettings) => void): void {
   void updateSettings((settings: Settings) => change(settings.convert));
 }
 
 export function renderOptions(container: HTMLElement, convert: ConvertSettings, releases: readonly string[]): void {
+  // "Newest" (stored as null) follows the catalog; a number, the newest included, stays put. A choice the catalog no
+  // longer holds shows as Newest, which is what a conversion would use, until the release check settles it.
+  const chosen = convert.snapmakerOrcaVersion;
+  const exact = chosen !== null && releases.includes(chosen) ? chosen : null;
   const version = el("select", { id: "orca-version" });
-  for (const [index, release] of releases.entries()) {
-    const label = index === 0 ? `${release} (newest)` : release;
-    version.append(el("option", { value: release, selected: release === (convert.snapmakerOrcaVersion ?? releases[0]) }, label));
-  }
-  version.addEventListener("change", () => save((c) => (c.snapmakerOrcaVersion = version.value === releases[0] ? null : version.value)));
+  if (releases[0] !== undefined) version.append(el("option", { value: NEWEST, selected: exact === null }, `Newest (currently ${releases[0]})`));
+  for (const release of releases) version.append(el("option", { value: release, selected: release === exact }, release));
+  version.addEventListener("change", () => save((c) => (c.snapmakerOrcaVersion = version.value === NEWEST ? null : version.value)));
 
   const toolheads = el("div", { class: "toolheads" });
   convert.highFlowToolheads.forEach((on, index) => {
@@ -40,7 +45,7 @@ export function renderOptions(container: HTMLElement, convert: ConvertSettings, 
     el("div", { class: "field" },
       el("label", { for: "orca-version" }, "Snapmaker Orca version"),
       version,
-      el("p", { class: "help" }, "Pick the version you have installed.")),
+      el("p", { class: "help" }, "Pick the version you have installed. Newest moves up when an update of the extension adds a release; a number stays until you change it.")),
     el("div", { class: "field" },
       el("span", { class: "label" }, "High-flow toolheads"),
       toolheads,

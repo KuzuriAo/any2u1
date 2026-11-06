@@ -24,6 +24,18 @@ export function activeRelease(chosen: string | null, releases: readonly string[]
   return chosen !== null && releases.includes(chosen) ? chosen : releases[0];
 }
 
+/**
+ * The choice to keep after an update is checked. A first run pins the newest, so a later update never moves anyone to a
+ * release they may not run without asking; a choice the catalog dropped moves to the newest, pinned the same way.
+ * Null ("Newest", chosen in the options) otherwise stays null and follows the catalog.
+ */
+export function settledChoice(known: readonly string[] | null, releases: readonly string[], chosen: string | null): string | null {
+  const newest = releases[0];
+  if (newest === undefined) return chosen;
+  if (chosen !== null && !releases.includes(chosen)) return newest;
+  return known === null ? (chosen ?? newest) : chosen;
+}
+
 /** What to tell the user, or null if nothing changed for them. */
 export function releaseNoticeText(change: ReleaseChange, releases: readonly string[], chosen: string | null): string | null {
   const newest = releases[0];
@@ -32,8 +44,10 @@ export function releaseNoticeText(change: ReleaseChange, releases: readonly stri
   if (change.droppedChoice !== null) parts.push(`Snapmaker Orca ${change.droppedChoice} is no longer available here, so conversions now use ${newest}, the newest.`);
   if (change.added.length > 0) {
     parts.push(`Snapmaker Orca ${change.added.join(", ")} ${change.added.length === 1 ? "is" : "are"} now available here.`);
-    if (chosen !== null && change.droppedChoice === null) parts.push(`You're still converting for ${chosen}; you can change that in the options.`);
-    else parts.push(`Conversions now use ${newest}. If you still run an older version, choose it in the options: a file made for a newer version may not open cleanly in an older one.`);
+    if (chosen !== null && change.droppedChoice === null) {
+      parts.push(`You're still converting for ${chosen}.`);
+      if (chosen !== newest) parts.push(`If you've updated Snapmaker Orca, choose ${newest} in the options.`);
+    } else parts.push(`Conversions now use ${newest}. If you still run an older version, choose it in the options: a file made for a newer version may not open cleanly in an older one.`);
   } else if (change.droppedChoice !== null) {
     parts.push("If you still run an older version, choose it in the options.");
   }

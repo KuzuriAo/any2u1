@@ -40,6 +40,22 @@ describe("parseSettings", () => {
   });
 });
 
+describe("the Snapmaker Orca version", () => {
+  it("is null (Newest) or an exact release number, and anything else falls back to Newest", () => {
+    expect(parseSettings({ convert: {} }).convert.snapmakerOrcaVersion).toBeNull();
+    expect(parseSettings({ convert: { snapmakerOrcaVersion: null } }).convert.snapmakerOrcaVersion).toBeNull();
+    expect(parseSettings({ convert: { snapmakerOrcaVersion: "2.4.1" } }).convert.snapmakerOrcaVersion).toBe("2.4.1");
+    for (const stored of ["newest", "", "2", "2.4.1 ", "v2.4.1", 2.4, true, ["2.4.1"], { version: "2.4.1" }]) {
+      expect(parseSettings({ convert: { snapmakerOrcaVersion: stored } }).convert.snapmakerOrcaVersion).toBeNull();
+    }
+  });
+  it("sends the exact newest when it was chosen by number, and nothing for Newest", () => {
+    expect(convertOptions({ ...defaultSettings().convert, snapmakerOrcaVersion: "2.4.2" }, ["2.4.2", "2.4.1"]).snapmakerOrcaVersion).toBe("2.4.2");
+    expect(convertOptions({ ...defaultSettings().convert, snapmakerOrcaVersion: "2.4.1" }, ["2.4.2", "2.4.1"]).snapmakerOrcaVersion).toBe("2.4.1");
+    expect(convertOptions(defaultSettings().convert, ["2.4.2", "2.4.1"])).not.toHaveProperty("snapmakerOrcaVersion");
+  });
+});
+
 describe("convertOptions", () => {
   const releases = ["2.4.1", "2.4.0"];
   it("asks for nothing extra by default", () => {

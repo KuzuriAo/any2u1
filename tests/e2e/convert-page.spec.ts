@@ -48,7 +48,7 @@ test("each option reaches the library: same bytes as asking it directly", async 
   const page = await session.open("convert.html");
   await page.locator("summary").click();
   await page.locator("#orca-version option").first().waitFor({ state: "attached" });
-  const versions = await page.locator("#orca-version option").evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value));
+  const versions = await page.locator("#orca-version option").evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value).filter((value) => value !== ""));
   expect(versions.length).toBeGreaterThan(1);
   const older = versions[1]!;
   await page.selectOption("#orca-version", older);

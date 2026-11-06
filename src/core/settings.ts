@@ -6,7 +6,7 @@ export type OfferStyle = "window" | "badge";
 export type Toolheads = [boolean, boolean, boolean, boolean];
 
 export type ConvertSettings = {
-  /** Null means the newest release the catalog holds. */
+  /** A release number stays put; null ("Newest" in the options) follows the newest release the catalog holds. A first run pins the newest. */
   snapmakerOrcaVersion: string | null;
   highFlowToolheads: Toolheads;
   hardenedNozzles: boolean;
