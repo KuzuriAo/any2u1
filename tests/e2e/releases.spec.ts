@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { convert } from "any2orca";
+import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { defaultSettings } from "../../src/core/settings";
-import { fixturePath, launch, SAMPLE, setSettings, type Session } from "./helpers";
+import { fixture, fixturePath, launch, SAMPLE, setSettings, sha256, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -101,19 +103,25 @@ test("after an update adds a release, Newest moves up: says so once, until dismi
   await expect(notice).toBeHidden();
 });
 
-test("a chosen release the catalog dropped: says so, and the picker and the result agree on the newest", async () => {
+test("a chosen release the catalog dropped: moves to the next version up, and the picker, the notice and the file agree", async () => {
   const releases = await releasesOf(session);
+  const nextUp = releases.at(-1)!;
   await setKnown(session, [...releases, "2.3.9"]);
-  const settings = defaultSettings();
-  await setSettings(session, { ...settings, convert: { ...settings.convert, snapmakerOrcaVersion: "2.3.9" } });
+  await choose(session, "2.3.9");
 
   const page = await session.open("convert.html");
-  await expect(page.locator("#release-notice")).toContainText("2.3.9 is no longer available");
-  await expect(page.locator("#options-version")).toContainText(`Snapmaker Orca ${releases[0]}`);
+  await expect(page.locator("#release-notice")).toContainText(`2.3.9 is no longer available here, so files are now converted for ${nextUp}, the next version up.`);
+  await expect(page.locator("#options-version")).toContainText(`Snapmaker Orca ${nextUp}`);
+  await page.locator("summary").click();
+  await expect(page.locator("#orca-version")).toHaveValue(nextUp);
   await page.setInputFiles("#file", fixturePath(SAMPLE));
-  await expect(page.locator(".saved")).toContainText(`for Snapmaker Orca ${releases[0]}`);
-  // Moved to the newest pinned, like a first run, so the next update doesn't move it again.
-  expect(await storedVersion(session)).toBe(releases[0]);
+  await expect(page.locator(".saved")).toContainText(`for Snapmaker Orca ${nextUp}`);
+  // The library was asked for that version, not its newest.
+  const saved = sha256(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf")));
+  expect(saved).toBe(sha256((await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), snapmakerOrcaVersion: nextUp })).output));
+  expect(saved).not.toBe(sha256((await convert(fixture(SAMPLE), { profiles: bundledProfileSource() })).output));
+  // Pinned, like a first run, so the next update doesn't move it again.
+  expect(await storedVersion(session)).toBe(nextUp);
 });
 
 test("each result and the options name the version chosen", async () => {

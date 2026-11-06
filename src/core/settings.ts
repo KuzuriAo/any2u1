@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The user's settings. Whatever storage holds is checked on the way in, and anything malformed falls back to the default. */
+import { activeRelease } from "./releases";
 
 export type FilamentNames = "original" | "generic" | "snapmaker";
 export type OfferStyle = "window" | "badge";
@@ -67,14 +68,14 @@ export function parseSettings(stored: unknown): Settings {
 }
 
 /**
- * What the library is asked for, given the releases its catalog holds. A saved release that's gone falls back to the
- * newest. High-flow is sent only where the file's nozzle has a high-flow option, as the web app does: the library would
+ * What the library is asked for, given the releases its catalog holds. "Newest" sends no release, so the library uses
+ * its newest; a saved release that's gone sends the one `activeRelease` moves it to. High-flow is sent only where the file's nozzle has a high-flow option, as the web app does: the library would
  * ignore it with a warning, which would show on every file of another nozzle size.
  */
 export function convertOptions(convert: ConvertSettings, releases: readonly string[], highFlowSupported = true) {
-  const version = convert.snapmakerOrcaVersion;
+  const version = convert.snapmakerOrcaVersion === null ? undefined : activeRelease(convert.snapmakerOrcaVersion, releases);
   return {
-    ...(version !== null && releases.includes(version) ? { snapmakerOrcaVersion: version } : {}),
+    ...(version !== undefined ? { snapmakerOrcaVersion: version } : {}),
     highFlowHotends: highFlowSupported && convert.highFlowToolheads.some(Boolean) ? [...convert.highFlowToolheads] : false,
     hardenedNozzles: convert.hardenedNozzles,
     ...(convert.filamentNames === "original" ? {} : { filamentComplianceMode: convert.filamentNames }),

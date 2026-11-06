@@ -66,8 +66,10 @@ describe("convertOptions", () => {
       convertOptions({ snapmakerOrcaVersion: "2.4.0", highFlowToolheads: [true, false, false, false], hardenedNozzles: true, filamentNames: "generic" }, releases),
     ).toEqual({ snapmakerOrcaVersion: "2.4.0", highFlowHotends: [true, false, false, false], hardenedNozzles: true, filamentComplianceMode: "generic" });
   });
-  it("falls back to the newest when a saved release is gone", () => {
-    expect(convertOptions({ ...defaultSettings().convert, snapmakerOrcaVersion: "1.0.0" }, releases)).not.toHaveProperty("snapmakerOrcaVersion");
+  it("sends the next release up when a saved one is gone, so the result names what was used", () => {
+    expect(convertOptions({ ...defaultSettings().convert, snapmakerOrcaVersion: "1.0.0" }, releases).snapmakerOrcaVersion).toBe("2.4.0");
+    expect(convertOptions({ ...defaultSettings().convert, snapmakerOrcaVersion: "9.0.0" }, releases).snapmakerOrcaVersion).toBe("2.4.1");
+    expect(convertOptions({ ...defaultSettings().convert, snapmakerOrcaVersion: "1.0.0" }, [])).not.toHaveProperty("snapmakerOrcaVersion");
   });
 });
 

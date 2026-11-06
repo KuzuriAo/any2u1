@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The conversion options, the same on the convert page and the settings page. */
+import { activeRelease } from "../core/releases";
 import type { ConvertSettings, FilamentNames, Settings } from "../core/settings";
 import { el } from "./dom";
 import { updateSettings } from "./settingsStore";
@@ -19,9 +20,9 @@ function save(change: (convert: ConvertSettings) => void): void {
 
 export function renderOptions(container: HTMLElement, convert: ConvertSettings, releases: readonly string[]): void {
   // "Newest" (stored as null) follows the catalog; a number, the newest included, stays put. A choice the catalog no
-  // longer holds shows as Newest, which is what a conversion would use, until the release check settles it.
+  // longer holds shows as the release a conversion would use instead, until the release check saves it.
   const chosen = convert.snapmakerOrcaVersion;
-  const exact = chosen !== null && releases.includes(chosen) ? chosen : null;
+  const exact = chosen === null ? null : (activeRelease(chosen, releases) ?? null);
   const version = el("select", { id: "orca-version" });
   if (releases[0] !== undefined) version.append(el("option", { value: NEWEST, selected: exact === null }, `Newest (currently ${releases[0]})`));
   for (const release of releases) version.append(el("option", { value: release, selected: release === exact }, release));
