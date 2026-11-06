@@ -6,8 +6,8 @@
   --ink: #1b1d1c;
   --muted: #5d6461;
   --line: #d9dcd9;
-  --accent: #0b6e4f;
-  --accent-soft: #e3f3ec;
+  --accent: #7c3aed;
+  --accent-soft: #f1ecfe;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -16,8 +16,8 @@
     --ink: #eceeec;
     --muted: #a2a9a5;
     --line: #363a38;
-    --accent: #3fbf95;
-    --accent-soft: #1b3229;
+    --accent: #a78bfa;
+    --accent-soft: #2a2140;
   }
 }
 * { box-sizing: border-box; }
