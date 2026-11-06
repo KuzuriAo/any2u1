@@ -48,13 +48,59 @@ npm run build
 
 <img width="640" alt="The small window offering to convert two downloaded 3MF files" src="docs/assets/offer.png" /> <img width="640" alt="A converted file, with every filament listed in the file's order and the name each had before" src="docs/assets/converted.png" />
 
-When you open the file in Snapmaker Orca, choose **Open as project**, or open it from an empty plate. "Import geometry only" drops the printer, filament and process settings.
+> [!WARNING]
+> In Snapmaker Orca, choose **Open as project**, or open the file on an empty plate. **Don't choose "Import geometry only"**: it drops the printer, filament and process settings.
 
 You can also click the toolbar button and hand it a 3MF, or a zip holding 3MF files, whenever you like. **Clear** empties the list of results; the files stay in your downloads. A zip download gets no automatic offer, because a download alone doesn't show what a zip holds.
 
-**Options**, the same ones whichever way you start: the Snapmaker Orca version, which toolheads have the high-flow hotend, hardened steel nozzles, and filament names for Snapmaker Space.
+## Settings
 
-**Snapmaker Orca versions:** choose the version you run. The default is the newest the extension holds, and it keeps up to three. A new version arrives with an update of the extension, which the browser installs for you, and the extension then tells you once. It never goes online to check.
+Open them with **Settings** at the bottom of the convert page. The footer names the build, which is worth quoting in a bug report.
+
+### Offers
+
+<img width="560" alt="The Offers section: offer to convert, and how to offer" src="docs/assets/settings-offers.png" />
+
+Turn the offer off, or choose how it comes: a small window (the default), or only a number on the toolbar button. For the number, pin the button to your toolbar, since the browser hides it on an unpinned extension. A download manager that takes over your downloads hides them from the browser, so they get no offer. For those, click the toolbar button and choose the saved file.
+
+<img width="360" alt="The small window, offering to convert two downloaded 3MF files" src="docs/assets/small-window.png" />
+
+### Saving
+
+<img width="560" alt="The Saving section: ask where to save each converted file" src="docs/assets/settings-saving.png" />
+
+**Ask where to save each converted file** opens the browser's Save dialog for each file, so you can rename it or choose another folder. A zip of several 3MF files opens one dialog per file, one after another. Off (the default), each file is saved next to your other downloads as `<name>_U1.3mf`.
+
+### Sites with no offer
+
+<img width="560" alt="The Sites with no offer section, listing one site with a Remove button" src="docs/assets/settings-no-offer.png" />
+
+The **Not on** button beside an offer, which names the site, adds that site here. **Remove** brings its offers back.
+
+### Default options
+
+<img width="560" alt="The Default options section: Snapmaker Orca version, high-flow toolheads, hardened steel nozzles and filament names" src="docs/assets/settings-options.png" />
+
+The same options are under **Options** on the convert page, and a change in either place is kept for the next file.
+
+- **Snapmaker Orca version:** choose the version you run. The default is the newest the extension holds, and it keeps up to three. A new version arrives with an update of the extension, which the browser installs for you, and the extension then tells you once. It never goes online to check.
+- **High-flow toolheads:** tick each toolhead fitted with the Liber High Flow Hotend. It's used only for a file whose nozzle has a high-flow profile, and the result says which toolheads it applied to.
+- **My nozzles are hardened steel:** the stock U1 0.4 mm nozzle is stainless steel. Tick this if you fitted hardened steel, so Snapmaker Orca warns about abrasive filaments correctly. It applies to 0.4 mm files.
+- **Filament names:** keep the names in the file (the default), or use Snapmaker or Generic names. Only the name and brand change; every filament stays, in its order and color, with the temperatures, flow and retraction the creator set. Snapmaker Space accepts a file only if every filament name starts with Snapmaker or Generic.
+
+### Hosts you gave access to
+
+<img width="560" alt="The Hosts you gave access to section, listing one host with a Remove button" src="docs/assets/settings-hosts.png" />
+
+Each host you allowed, so the extension could fetch a file you chose to convert. **Remove** takes the access back. See [What it asks for](#what-it-asks-for).
+
+The settings page also explains the red CORS error the browser logs when a site won't let the extension read a file. It's expected: the extension then offers its two choices.
+
+### Diagnostics
+
+<img width="560" alt="The Diagnostics section, with Copy the versions and What's in it" src="docs/assets/settings-diagnostics.png" />
+
+**Copy the versions** copies the browser, extension and library versions, to paste into a bug report. It names no file, site or address. **What's in it** shows the exact text.
 
 ## What it asks for
 
