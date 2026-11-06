@@ -106,7 +106,7 @@ function settled(id: number): Promise<chrome.downloads.DownloadItem | undefined>
 }
 
 /** What the result says once the browser is done: where the file is, or that it isn't there. */
-function showSaved(item: HTMLLIElement, id: number, asked: string, download: chrome.downloads.DownloadItem | undefined): void {
+function showSaved(item: HTMLLIElement, id: number, asked: string, download: chrome.downloads.DownloadItem | undefined, ask: boolean): void {
   const line = item.querySelector<HTMLElement>(".saved");
   if (!line) return;
   if (download?.state === "complete") {
@@ -118,42 +118,52 @@ function showSaved(item: HTMLLIElement, id: number, asked: string, download: chr
     return;
   }
   item.classList.add("unsaved");
-  line.textContent = `This file wasn't saved: ${whyUnsaved(download?.error)}. Convert it again to save it.`;
+  line.textContent = `This file wasn't saved: ${whyUnsaved(download?.error, ask)}. Convert it again to save it.`;
 }
 
-/** The browser's reason in words. Chrome also says "canceled" when it couldn't write to the folder, so that isn't blamed on the user. */
-function whyUnsaved(error: string | undefined): string {
+/**
+ * The browser's reason in words. Chrome also says "canceled" when it couldn't write to the folder, so that isn't blamed on
+ * the user, except when the user was asked where to save: then a cancel is most likely the Save dialog's.
+ */
+function whyUnsaved(error: string | undefined, ask = false): string {
+  if (ask && error === "USER_CANCELED") return "the save was canceled";
   if (error === "FILE_NO_SPACE") return "there isn't enough space on the disk";
   if (error === "USER_CANCELED" || error?.startsWith("FILE_")) return "the browser couldn't write it to the downloads folder, or the save was canceled";
   return "the browser stopped the download";
 }
 
-async function saveNow(result: Converted, item: HTMLLIElement): Promise<void> {
+async function saveNow(result: Converted, item: HTMLLIElement, ask: boolean): Promise<void> {
   const url = URL.createObjectURL(new Blob([result.output as BlobPart], { type: "model/3mf" }));
   let id: number;
   try {
-    id = await api.downloads.download({ url, filename: result.name, conflictAction: "uniquify", saveAs: false });
+    id = await api.downloads.download({ url, filename: result.name, conflictAction: "uniquify", saveAs: ask });
   } catch (error) {
     URL.revokeObjectURL(url);
     throw error;
   }
   const done = settled(id).then((download) => {
     URL.revokeObjectURL(url);
-    showSaved(item, id, result.name, download);
+    showSaved(item, id, result.name, download, ask);
   });
-  await Promise.race([done, new Promise((resolve) => setTimeout(resolve, SAVE_WAIT_MS))]);
+  // With the Save dialog, each waits for the one before, so the dialogs come one at a time; the person is the timer.
+  if (ask) await done;
+  else await Promise.race([done, new Promise((resolve) => setTimeout(resolve, SAVE_WAIT_MS))]);
 }
 
 // One save at a time. Two started together under one name can both fail in one browser, and the first file goes with them.
 let saving: Promise<unknown> = Promise.resolve();
 
 /** Saves through the browser, then offers to show the file. The extension's own save never gets an offer. */
-function save(result: Converted, item: HTMLLIElement): void {
-  const next = saving.then(() => saveNow(result, item));
+function save(result: Converted, item: HTMLLIElement, ask: boolean): void {
+  const next = saving.then(() => saveNow(result, item, ask));
   saving = next.catch(() => {});
   next.catch((error: unknown) => {
     item.classList.add("unsaved");
-    item.querySelector(".saved")!.textContent = `Couldn't save this file: ${error instanceof Error ? error.message : "the browser refused"}.`;
+    const message = error instanceof Error ? error.message : "";
+    // Firefox rejects the call when its Save dialog is canceled.
+    item.querySelector(".saved")!.textContent = ask && /cancel/i.test(message)
+      ? "This file wasn't saved: the save was canceled. Convert it again to save it."
+      : `Couldn't save this file: ${message || "the browser refused"}.`;
   });
 }
 
@@ -178,7 +188,7 @@ function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
   }));
 }
 
-function showOutcome(outcome: Outcome, site: string | null = null): boolean {
+function showOutcome(outcome: Outcome, site: string | null = null, ask = false): boolean {
   resultsSection.hidden = false;
   if ("error" in outcome) {
     // Stopping is the user's own choice, so there's nothing to report.
@@ -189,13 +199,13 @@ function showOutcome(outcome: Outcome, site: string | null = null): boolean {
   const item = el("li", { class: "converted" },
     el("strong", {}, outcome.name),
     outcome.alreadyU1 && el("p", { class: "already" }, "This file was already set up for the Snapmaker U1. It has still been converted, and saved as a new file."),
-    el("p", { class: "saved" }, `Saved to your downloads, using ${outcome.profile}${[outcome.orcaVersion ? `for Snapmaker Orca ${outcome.orcaVersion}` : "", ...outcome.printer].filter(Boolean).map((part) => `, ${part}`).join("")}. `),
+    el("p", { class: "saved" }, `${ask ? "Saved where you chose" : "Saved to your downloads"}, using ${outcome.profile}${[outcome.orcaVersion ? `for Snapmaker Orca ${outcome.orcaVersion}` : "", ...outcome.printer].filter(Boolean).map((part) => `, ${part}`).join("")}. `),
     // The library's sentences can start in lower case; only the first letter changes.
     outcome.profileNotes.length > 0 && el("ul", { class: "profile-notes" }, ...outcome.profileNotes.map((note) => el("li", {}, note.charAt(0).toUpperCase() + note.slice(1)))),
     filamentList(outcome.filaments),
     outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, note))));
   results.append(item);
-  save(outcome, item);
+  save(outcome, item, ask);
   need("#open-tip").hidden = false;
   return true;
 }
@@ -227,7 +237,7 @@ async function convertNow(name: string, bytes: Uint8Array, site: string | null, 
       step = text;
       update();
     });
-    const converted = outcomes.map((outcome) => showOutcome(outcome, site)).some(Boolean);
+    const converted = outcomes.map((outcome) => showOutcome(outcome, site, settings.askWhereToSave)).some(Boolean);
     if (outcomes.length === 0) showOutcome({ source: name, error: "This zip has no 3MF file inside.", code: "zip_no_3mf", size }, site);
     if (converted) return "converted";
     const codes = outcomes.map((outcome) => ("code" in outcome ? outcome.code : undefined));

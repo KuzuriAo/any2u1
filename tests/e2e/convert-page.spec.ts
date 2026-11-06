@@ -5,7 +5,7 @@ import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { libraryVersion } from "./helpers";
-import { expectOnlyThese, fixture, fixturePath, launch, PRUSA_FIXTURES, SAMPLE, savedNames, sha256, superSlicerProject, type Session } from "./helpers";
+import { expectOnlyThese, fixture, fixturePath, launch, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -460,4 +460,61 @@ test("the settings page copies the versions, and says what a download manager do
   expect(copied).toMatch(/^any2u1 diagnostics\nBrowser: Chrome \d+\nany2u1 0\.1\.0, any2orca \d+\.\d+\.\d+$/);
   // The settings page, like the others, asks for nothing but the extension's own files.
   expectOnlyThese(session.requests, session.origin);
+});
+
+/**
+ * A driver can't answer the browser's own Save dialog, so this records what the page asks the download API for, and
+ * saves without the dialog (or fails the way Firefox does when its dialog is canceled). The dialog itself is a hand check.
+ */
+async function openWithDownloadSpy(path: string, cancel = false) {
+  const page = await session.context.newPage();
+  await page.addInitScript((cancelIt) => {
+    const spy = window as unknown as { asked: unknown[] };
+    spy.asked = [];
+    const downloads = chrome.downloads;
+    const real = downloads.download.bind(downloads);
+    downloads.download = ((options: chrome.downloads.DownloadOptions) => {
+      spy.asked.push(options.saveAs);
+      return cancelIt ? Promise.reject(new Error("Download canceled by the user")) : real({ ...options, saveAs: false });
+    }) as typeof downloads.download;
+  }, cancel);
+  await page.goto(`${session.origin}/${path}`);
+  return page;
+}
+const asked = (page: Awaited<ReturnType<typeof openWithDownloadSpy>>) => page.evaluate(() => (window as unknown as { asked: unknown[] }).asked);
+
+test("by default the file is saved with no dialog", async () => {
+  const page = await openWithDownloadSpy("convert.html");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted .saved .show")).toBeVisible();
+  await expect(page.locator(".converted .saved")).toContainText("Saved to your downloads");
+  expect(await asked(page)).toEqual([false]);
+});
+
+test("with Ask where to save on, the browser is asked for its Save dialog, and the result says so", async () => {
+  await setSettings(session, { askWhereToSave: true });
+  const page = await openWithDownloadSpy("convert.html");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted .saved .show")).toBeVisible();
+  await expect(page.locator(".converted .saved")).toContainText("Saved where you chose");
+  expect(await asked(page)).toEqual([true]);
+  expect(savedNames(session)).toContain(SAMPLE.replace(/\.3mf$/, "_U1.3mf"));
+});
+
+test("a canceled Save dialog says the file wasn't saved, calmly", async () => {
+  await setSettings(session, { askWhereToSave: true });
+  const page = await openWithDownloadSpy("convert.html", true);
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted .saved")).toHaveText("This file wasn't saved: the save was canceled. Convert it again to save it.");
+  await expect(page.locator(".converted")).toHaveClass(/unsaved/);
+});
+
+test("the settings page switches Ask where to save on and off", async () => {
+  const page = await session.open("settings.html");
+  const box = page.locator("#ask-where");
+  await expect(box).not.toBeChecked();
+  await box.check();
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { askWhereToSave?: boolean } | undefined)?.askWhereToSave)).toBe(true);
+  await box.uncheck();
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { askWhereToSave?: boolean } | undefined)?.askWhereToSave)).toBe(false);
 });

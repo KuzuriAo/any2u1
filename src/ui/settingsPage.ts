@@ -10,6 +10,7 @@ import { environment, reportBlock } from "./report";
 import type { Settings } from "../core/settings";
 
 const enabled = need<HTMLInputElement>("#enabled");
+const askWhere = need<HTMLInputElement>("#ask-where");
 const styleWindow = need<HTMLInputElement>("#style-window");
 const styleBadge = need<HTMLInputElement>("#style-badge");
 const quietList = need<HTMLUListElement>("#quiet");
@@ -39,11 +40,13 @@ function drawSwitches(settings: Settings): void {
   styleWindow.checked = settings.offerStyle === "window";
   styleBadge.checked = settings.offerStyle === "badge";
   need("#pin-tip").hidden = settings.offerStyle !== "badge";
+  askWhere.checked = settings.askWhereToSave;
 }
 
 enabled.addEventListener("change", () => void updateSettings((s) => (s.enabled = enabled.checked)));
 styleWindow.addEventListener("change", () => void updateSettings((s) => (s.offerStyle = "window")));
 styleBadge.addEventListener("change", () => void updateSettings((s) => (s.offerStyle = "badge")));
+askWhere.addEventListener("change", () => void updateSettings((s) => (s.askWhereToSave = askWhere.checked)));
 
 async function draw(): Promise<void> {
   const releases = await listReleases();

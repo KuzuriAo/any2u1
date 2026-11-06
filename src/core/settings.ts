@@ -18,6 +18,8 @@ export type Settings = {
   offerStyle: OfferStyle;
   /** Hosts with no offer, without a leading `www.`. */
   quietSites: string[];
+  /** Open the browser's Save dialog for each converted file, so it can be renamed or put elsewhere. */
+  askWhereToSave: boolean;
   convert: ConvertSettings;
 };
 
@@ -29,6 +31,7 @@ export function defaultSettings(): Settings {
     enabled: true,
     offerStyle: "window",
     quietSites: [],
+    askWhereToSave: false,
     convert: { snapmakerOrcaVersion: null, highFlowToolheads: [false, false, false, false], hardenedNozzles: false, filamentNames: "original" },
   };
 }
@@ -53,6 +56,7 @@ export function parseSettings(stored: unknown): Settings {
     quietSites: Array.isArray(raw.quietSites)
       ? [...new Set(raw.quietSites.filter((host): host is string => typeof host === "string" && host !== "" && host.length <= MAX_HOST))].slice(-MAX_QUIET_SITES)
       : [],
+    askWhereToSave: raw.askWhereToSave === true,
     convert: {
       snapmakerOrcaVersion: typeof version === "string" && /^\d+(\.\d+){1,3}$/.test(version) ? version : null,
       highFlowToolheads: isToolheads(convert.highFlowToolheads) ? convert.highFlowToolheads : defaults.convert.highFlowToolheads,

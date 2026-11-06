@@ -30,8 +30,13 @@ describe("parseSettings", () => {
     expect(kept.at(-1)).toBe("s1999.example");
   });
   it("is a fixed point, so what's stored after a change is what's read back", () => {
-    const parsed = parseSettings({ quietSites: ["a.example", "a.example", "b.example"], offerStyle: "badge" });
+    const parsed = parseSettings({ quietSites: ["a.example", "a.example", "b.example"], offerStyle: "badge", askWhereToSave: true });
     expect(parseSettings(parsed)).toEqual(parsed);
+  });
+  it("asks where to save only when that was chosen, as a plain true", () => {
+    expect(defaultSettings().askWhereToSave).toBe(false);
+    expect(parseSettings({ askWhereToSave: true }).askWhereToSave).toBe(true);
+    for (const stored of [false, "true", 1, {}, null]) expect(parseSettings({ askWhereToSave: stored }).askWhereToSave).toBe(false);
   });
 });
 
