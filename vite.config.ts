@@ -8,8 +8,14 @@ import { withoutZodEvalProbe } from "./withoutZodEvalProbe.ts";
 // The version shown in a failure report. Read here so there is one source: the installed package.
 const libraryVersion = (JSON.parse(readFileSync("node_modules/any2orca/package.json", "utf-8")) as { version: string }).version;
 
-/** The commit this was built from, so that a browser still running an older build can be told from the latest. A "+" means uncommitted changes. */
+/**
+ * The commit this was built from, so that a browser still running an older build can be told from the latest. A "+" means
+ * uncommitted changes. A source zip has no git history, so `git archive` writes the commit into scripts/build-id.txt
+ * (export-subst in .gitattributes), and a build from the zip names the same commit as one from the checkout.
+ */
 function buildId(): string {
+  const archived = readFileSync("scripts/build-id.txt", "utf-8").trim();
+  if (!archived.startsWith("$Format")) return /^[0-9a-f]{7,40}$/.test(archived) ? archived : "unknown";
   try {
     const run = (command: string) => execSync(command, { encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
     return `${run("git rev-parse --short HEAD")}${run("git status --porcelain") === "" ? "" : "+"}`;

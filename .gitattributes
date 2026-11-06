@@ -1,0 +1,2 @@
+# git archive writes the commit into this file, so a build from the source zip names it.
+scripts/build-id.txt export-subst
