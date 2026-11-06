@@ -6,7 +6,7 @@ A browser extension that turns a 3MF project into a Snapmaker U1 file, on any si
 
 It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio, PrusaSlicer and QIDI Studio. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
 
-It's tested on Chrome 156, Edge 156, Brave 1.99 and Firefox 159. It isn't in any extension store yet, so for now you load it yourself.
+It's tested on Chrome 156, Edge 156, Brave 1.99 and Firefox 159, and needs Firefox 153 or later. It's for desktop browsers: Firefox for Android has no downloads API for extensions, which any2u1 is built on. It isn't in any extension store yet, so for now you load it yourself.
 
 ## Supported slicers
 

@@ -78,3 +78,10 @@ test("the two builds differ only in how the manifest declares the background scr
   expect(firefoxBackground).toEqual({ scripts: ["background.js"] });
   expect(gecko).toMatchObject({ gecko: { id: expect.any(String), data_collection_permissions: { required: ["none"] } } });
 });
+
+test("Firefox needs a supported desktop release, and nothing claims Firefox for Android", () => {
+  const settings = manifestOf("firefox").browser_specific_settings as { gecko: { strict_min_version?: string } };
+  // 153 is the oldest supported ESR. Firefox for Android has had no downloads API since 79, so the extension can't run there.
+  expect(settings.gecko.strict_min_version).toBe("153.0");
+  expect(settings).not.toHaveProperty("gecko_android");
+});

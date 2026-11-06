@@ -82,7 +82,7 @@ writeFileSync(join(firefox, "manifest.json"), `${JSON.stringify({
   ...base,
   background: { scripts: ["background.js"] },
   browser_specific_settings: {
-    gecko: { id: "any2u1@kuzuriao.com", strict_min_version: "140.0", data_collection_permissions: { required: ["none"] } },
+    gecko: { id: "any2u1@kuzuriao.com", strict_min_version: "153.0", data_collection_permissions: { required: ["none"] } },
   },
 }, null, 2)}\n`);
 
