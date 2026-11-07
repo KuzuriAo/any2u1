@@ -46,7 +46,7 @@ npm run build
 3. While it converts, the page shows the step it's on, a clock and a moving bar. **Stop** ends a conversion that's taking too long.
 4. It saves `<name>_U1.3mf` next to your other downloads and shows any notes worth reading. **Show in folder** takes you to it. If you'd rather name each file and choose its folder, turn on **Ask where to save each converted file** in the settings, and the browser's Save dialog opens instead.
 
-<img width="640" alt="The small window offering to convert two downloaded 3MF files" src="docs/assets/offer.png" /> <img width="640" alt="A converted file, with every filament listed in the file's order and the name each had before" src="docs/assets/converted.png" />
+<img width="640" alt="The small window offering to convert two downloaded 3MF files" src="docs/assets/offer.png" /> <img width="640" alt="A converted file, with every filament listed in the file's order and the name each had before, and notes on which filaments now use a preset's settings" src="docs/assets/converted.png" />
 
 > [!WARNING]
 > In Snapmaker Orca, choose **Open as project**, or open the file on an empty plate. **Don't choose "Import geometry only"**: it drops the printer, filament and process settings.
@@ -55,56 +55,76 @@ You can also click the toolbar button and hand it a 3MF, or a zip holding 3MF fi
 
 ## Settings
 
-Open them with **Settings** at the bottom of the convert page. The footer names the build, which is worth quoting in a bug report.
+Open them with **Settings** at the bottom of the convert page. Each change is saved as you make it. The footer names the build, which is worth quoting in a bug report.
 
 ### Offers
 
-<img width="560" alt="The Offers section: offer to convert, and how to offer" src="docs/assets/settings-offers.png" />
+<img width="560" alt="The Offers section: Offer to convert when a 3MF finishes downloading, and How to offer" src="docs/assets/settings-offers.png" />
 
-Turn the offer off, or choose how it comes: a small window (the default), or only a number on the toolbar button. For the number, pin the button to your toolbar, since the browser hides it on an unpinned extension. A download manager that takes over your downloads hides them from the browser, so they get no offer. For those, click the toolbar button and choose the saved file.
+| Setting | What it does | Default |
+|---|---|---|
+| **Offer to convert when a 3MF finishes downloading** | Offers to convert each 3MF the browser finishes downloading. Off, nothing is offered, and you can still click the toolbar button and choose a saved file. | On |
+| **How to offer** | **A small window** opens, with a row for each file waiting. **Only a number on the toolbar button** shows how many files are waiting; clicking the button opens the small window. Pin the button to your toolbar to see the number, since the browser hides it on an unpinned extension. | A small window |
 
-The small window, offering two downloads:
+What each looks like:
 
-<img width="480" alt="The small window, offering to convert two downloaded 3MF files" src="docs/assets/small-window.png" />
+| A small window, offering two downloads | Only a number, with one file waiting |
+|---|---|
+| <img width="360" alt="The small window, offering to convert two downloaded 3MF files" src="docs/assets/small-window.png" /> | <img width="240" alt="The any2u1 toolbar button with the number 1 on it" src="docs/assets/toolbar-number.png" /> |
 
-Only a number, here with one file waiting. Clicking the button opens the small window:
-
-<img width="364" alt="The any2u1 toolbar button with the number 1 on it" src="docs/assets/toolbar-number.png" />
+A download manager that takes over your downloads hides them from the browser, so there's no offer for them. The same goes for a saved file with a random name or no `.3mf` ending. For any saved file, click the toolbar button and choose it.
 
 ### Saving
 
-<img width="560" alt="The Saving section: ask where to save each converted file" src="docs/assets/settings-saving.png" />
+<img width="560" alt="The Saving section: Ask where to save each converted file" src="docs/assets/settings-saving.png" />
 
-**Ask where to save each converted file** opens the browser's Save dialog for each file, so you can rename it or choose another folder. A zip of several 3MF files opens one dialog per file, one after another. Off (the default), each file is saved next to your other downloads as `<name>_U1.3mf`.
+| Setting | What it does | Default |
+|---|---|---|
+| **Ask where to save each converted file** | Opens the browser's Save dialog for each file, so you can rename it or choose another folder. A zip of several 3MF files opens one dialog per file, one after another. Off, each file is saved next to your other downloads as `<name>_U1.3mf`. | Off |
 
 ### Sites with no offer
 
 <img width="560" alt="The Sites with no offer section, listing one site with a Remove button" src="docs/assets/settings-no-offer.png" />
 
-The **Not on** button beside an offer, which names the site, adds that site here. **Remove** brings its offers back.
+The sites whose downloads get no offer. The **Not on** button beside an offer, which names the site, adds that site here. **Remove** brings its offers back. The list starts empty.
 
 ### Default options
 
-<img width="560" alt="The Default options section: Snapmaker Orca version, high-flow toolheads, hardened steel nozzles and filament names" src="docs/assets/settings-options.png" />
+<img width="560" alt="The Default options section: Snapmaker Orca version, High-flow toolheads, My nozzles are hardened steel, and Filament" src="docs/assets/settings-options.png" />
 
 The same options are under **Options** on the convert page, and a change in either place is kept for the next file.
 
-- **Snapmaker Orca version:** choose the version you run. A new install starts on the newest the extension holds, and stays there until you change it. A newer version arrives with an update of the extension, which the browser installs for you; the extension then says so, and you choose it once you've updated Snapmaker Orca. That notice stays until you click **Got it**, and comes back with the next new version. Choose **Newest** instead to move up with each update. Every version from 2.4.0 on stays in the picker; once there are many, the older ones sit under **Older versions**. It never goes online to check.
-- **High-flow toolheads:** tick each toolhead fitted with the Liber High Flow Hotend. It's used only for a file whose nozzle has a high-flow profile, and the result says which toolheads it applied to.
-- **My nozzles are hardened steel:** the stock U1 0.4 mm nozzle is stainless steel. Tick this if you fitted hardened steel, so Snapmaker Orca warns about abrasive filaments correctly. It applies to 0.4 mm files.
-- **Filament:** Original (the default) keeps the creator's filaments exactly, names and settings. Generic and Snapmaker switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space, which accepts a file only if every filament name starts with Snapmaker or Generic; colors and order stay.
+| Setting | What it does | Default |
+|---|---|---|
+| **Snapmaker Orca version** | The Snapmaker Orca version the file is made for. Choose the version you run. | The newest the extension holds when it's installed |
+| **High-flow toolheads** | Tick each toolhead fitted with the Liber High Flow Hotend. It's used only for a file whose nozzle has a high-flow profile, and the result says which toolheads it applied to. | None ticked |
+| **My nozzles are hardened steel** | The stock U1 0.4 mm nozzle is stainless steel. Tick this if you fitted hardened steel, so Snapmaker Orca warns about abrasive filaments correctly. It applies to 0.4 mm files. | Off |
+| **Filament** | Original (the default) keeps the creator's filaments exactly, names and settings. Generic and Snapmaker switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space, which accepts a file only if every filament name starts with Snapmaker or Generic; colors and order stay. The result says which filaments now use a preset's settings, and what that changed. | Original |
+
+How the **Snapmaker Orca version** follows updates:
+
+- A new install starts on the newest version the extension holds, and stays there until you change it.
+- A newer version arrives with an update of the extension, which the browser installs for you. The extension then says so, and you choose it once you've updated Snapmaker Orca.
+- That notice stays until you click **Got it**, and comes back with the next new version.
+- Choose **Newest** instead to move up with each update.
+- Every version from 2.4.0 on stays in the picker; once there are many, the older ones sit under **Older versions**.
+- It never goes online to check.
 
 ### Hosts you gave access to
 
 <img width="560" alt="The Hosts you gave access to section, listing one host with a Remove button" src="docs/assets/settings-hosts.png" />
 
-Each host you allowed, so the extension could fetch a file you chose to convert. **Remove** takes the access back. See [What it asks for](#what-it-asks-for).
+Each host you allowed, so the extension could fetch a file you chose to convert. **Remove** takes the access back. Some browsers remember an approval, so a host you remove can come back without a new prompt until you remove the extension. The list starts empty. See [What it asks for](#what-it-asks-for).
 
-The settings page also explains the red CORS error the browser logs when a site won't let the extension read a file. It's expected: the extension then offers its two choices.
+### A CORS error in the browser's logs
+
+<img width="560" alt="The section explaining the CORS error the browser logs" src="docs/assets/settings-cors.png" />
+
+When a site won't let the extension read a file, the browser logs a red error saying the request was blocked by a CORS policy. That's expected and nothing is wrong: the extension logs a warning beside it that says so, then offers its two choices.
 
 ### Diagnostics
 
-<img width="560" alt="The Diagnostics section, with Copy the versions and What's in it" src="docs/assets/settings-diagnostics.png" />
+<img width="560" alt="The Diagnostics section, with What's in it open to show the browser, extension and library versions" src="docs/assets/settings-diagnostics.png" />
 
 **Copy the versions** copies the browser, extension and library versions, to paste into a bug report. It names no file, site or address. **What's in it** shows the exact text.
 
