@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { chmodSync } from "node:fs";
-import { convert } from "any2orca";
+import { convert, filamentNotes } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { FILAMENT_HELP } from "../../src/core/settings";
 import { libraryVersion } from "./helpers";
 import { expectOnlyThese, fixture, fixturePath, launch, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
 
@@ -302,6 +303,31 @@ test("every filament is listed as the file has it, in order, with what each is n
   }
   // The scene's four filaments, renamed but kept in order: nothing dropped or merged.
   expect(library.report.filaments.map((filament) => filament.slot)).toEqual([1, 2, 3, 4]);
+});
+
+test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {
+  const page = await session.open("convert.html");
+  await page.locator("summary").click();
+  await expect(page.locator("#filament-names ~ .help")).toHaveText(FILAMENT_HELP);
+  await page.selectOption("#filament-names", "snapmaker");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  const output = SAMPLE.replace(/\.3mf$/, "_U1.3mf");
+  await expect(page.locator(".converted strong")).toHaveText(output);
+  const snapmaker = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+  expect(filamentNotes(snapmaker.report).length).toBeGreaterThan(0);
+  expect(await page.locator(".converted .notes li").allTextContents()).toEqual([...snapmaker.report.warnings, ...filamentNotes(snapmaker.report)]);
+  await expect(page.locator(".converted .notes")).toContainText("Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C");
+  expect(sha256(await session.savedFile(output))).toBe(sha256(snapmaker.output));
+
+  await page.locator("#clear-results").click();
+  await page.selectOption("#filament-names", "original");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  // The same name is taken now, so the browser numbers the second copy, and the result names it as saved.
+  await expect(page.locator(".converted strong")).toHaveText(output.replace(/\.3mf$/, " (1).3mf"));
+  await expect(page.locator(".converted button.show")).toBeVisible();
+  const original = await convert(fixture(SAMPLE), { profiles: bundledProfileSource() });
+  expect(filamentNotes(original.report)).toEqual([]);
+  expect(await page.locator(".converted .notes li").allTextContents()).toEqual(original.report.warnings);
 });
 
 test("a PrusaSlicer scene keeps all four filaments in order with their colors, and shows the library's notes", async () => {

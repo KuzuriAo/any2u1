@@ -3,6 +3,10 @@
 import { activeRelease } from "./releases";
 
 export type FilamentNames = "original" | "generic" | "snapmaker";
+
+/** The help under the Filament option, in the words the any2orca web app uses, so the two say the same. */
+export const FILAMENT_HELP =
+  "Original keeps the creator's filaments exactly: their names and their settings. Generic and Snapmaker switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Snapmaker Orca would use the preset's settings anyway once a filament carries its name.";
 export type OfferStyle = "window" | "badge";
 export type Toolheads = [boolean, boolean, boolean, boolean];
 

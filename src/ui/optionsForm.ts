@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The conversion options, the same on the convert page and the settings page. */
 import { activeRelease, releaseGroups } from "../core/releases";
-import type { ConvertSettings, FilamentNames, Settings } from "../core/settings";
+import { FILAMENT_HELP, type ConvertSettings, type FilamentNames, type Settings } from "../core/settings";
 import { el } from "./dom";
 import { updateSettings } from "./settingsStore";
 
@@ -81,6 +81,6 @@ export function renderOptions(container: HTMLElement, convert: ConvertSettings, 
     el("div", { class: "field" },
       el("label", { for: "filament-names" }, "Filament"),
       filament,
-      el("p", { class: "help" }, "Only the filament's name and brand can change here; temperatures, flow and retraction always stay as the creator set them. Original keeps the names from the file (Snapmaker Orca lists them as custom filaments, which is fine). Generic and Snapmaker relabel them to presets Snapmaker Orca ships, for uploads to Snapmaker Space.")),
+      el("p", { class: "help" }, FILAMENT_HELP)),
   );
 }

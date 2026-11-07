@@ -7,6 +7,7 @@ import { createConverterWorker, type ConverterWorker } from "any2orca/worker";
 import type { ReportFilament } from "any2orca";
 import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
+import { notesFor } from "../core/notes";
 import { is3mfName, outputName } from "../core/names";
 import { stageText } from "../core/progress";
 import { activeRelease } from "../core/releases";
@@ -93,14 +94,6 @@ function failure(source: string, error: unknown, size: number): Failed {
 
 const isU1File = (printerModel: string | null, sourceVendor: string) => sourceVendor === "snapmaker" && /\bU1\b/.test(printerModel ?? "");
 
-/** What the library had to say. */
-function notesFor(warnings: readonly string[], fallback: readonly string[] = [], unchanged: readonly string[] = []): string[] {
-  const notes: string[] = [...warnings];
-  if (fallback.length > 0) notes.push(`Snapmaker makes no preset for ${fallback.join(", ")} at this nozzle size, so it uses Generic.`);
-  if (unchanged.length > 0) notes.push(`No Snapmaker or Generic preset fits ${unchanged.join(", ")} at this nozzle size, so its name stays as the creator had it. Snapmaker Space may refuse this file.`);
-  return notes;
-}
-
 /** Told what a conversion is doing, in words: the library reports four stages, and the page adds its own. */
 export type Step = (text: string) => void;
 
@@ -125,7 +118,7 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
       orcaVersion: release,
       printer: describePrinter(convert, nozzle, highFlowSupported),
       alreadyU1: isU1File(inspection.printerModel, inspection.sourceVendor),
-      notes: notesFor(report.warnings, report.filamentComplianceFallback, report.filamentComplianceUnchanged),
+      notes: notesFor(report),
     };
   } finally {
     await guarded(project.close()).catch(() => {});

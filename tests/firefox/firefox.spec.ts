@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What differs in Firefox: the background script runs as a page, there's no showOpenFilePicker, host access is asked
 // for from a click, and the converter's worker can fail its own way. The rest is the Chromium suite's.
-import { convert } from "any2orca";
+import { convert, filamentNotes } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
@@ -130,4 +130,19 @@ test("a worker that fails mid-conversion: the file gets a message, and the next 
   await page.until(`document.querySelector(".converted strong")?.textContent === ${JSON.stringify(output)}`);
   expect(sha256(await firefox.savedFile(output))).toBe(await libraryOutput(fixture(SAMPLE)));
   expect(await page.evaluate(`window.workers.length`)).toBe(2);
+});
+
+test("the Snapmaker option's notes are the library's sentences, and the file is the library's", async () => {
+  const page = await firefox.open("convert.html");
+  await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+  await page.evaluate(`(() => { const select = document.querySelector("#filament-names"); select.value = "snapmaker"; select.dispatchEvent(new Event("change")); return true; })()`);
+  await page.until(`browser.storage.local.get("settings").then(({ settings }) => settings?.convert?.filamentNames === "snapmaker")`);
+  await page.setFiles("#file", [{ name: SAMPLE, bytes: fixture(SAMPLE) }], "#choose");
+  const output = SAMPLE.replace(/\.3mf$/, "_U1.3mf");
+  await page.until(`document.querySelector(".converted strong")?.textContent === ${JSON.stringify(output)}`);
+  const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+  const notes = await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`);
+  expect(notes).toEqual([...library.report.warnings, ...filamentNotes(library.report)]);
+  expect(notes.join(" ")).toContain("Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C");
+  expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
 });
