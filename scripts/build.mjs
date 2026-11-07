@@ -73,6 +73,9 @@ const base = {
   },
   icons: { 16: "icons/icon-16.png", 32: "icons/icon-32.png", 48: "icons/icon-48.png", 128: "icons/icon-128.png" },
   options_ui: { page: "settings.html", open_in_tab: true },
+  // Never in private windows: one copy of the extension serves both kinds of window, so a private download's offer would
+  // open in a normal window and its converted file would stay in the normal downloads list after the private window closed.
+  incognito: "not_allowed",
 };
 
 writeFileSync(join(chrome, "manifest.json"), `${JSON.stringify({ ...base, background: { service_worker: "background.js" } }, null, 2)}\n`);

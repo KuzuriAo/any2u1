@@ -25,6 +25,10 @@ for (const target of ["chrome", "firefox"]) {
       }
     });
 
+    test("never runs in private windows, so nothing from one reaches a normal window or the downloads list", () => {
+      expect(manifestOf(target).incognito).toBe("not_allowed");
+    });
+
     test("has a description short enough for the stores", () => {
       const description = manifestOf(target).description as string;
       expect(description.length).toBeLessThanOrEqual(132);

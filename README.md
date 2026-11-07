@@ -118,7 +118,7 @@ It has no content scripts, so it doesn't read the pages you visit.
 
 ## Privacy
 
-Your files stay on your device. The only requests the extension makes are for its own files and, when you click convert, for the one file you chose. It has no accounts, analytics or telemetry. Browser tests check this on every request they see.
+Your files stay on your device. The only requests the extension makes are for its own files and, when you click convert, for the one file you chose. It has no accounts, analytics or telemetry. Browser tests check this on every request they see. It never runs in private windows, and the browser offers no way to allow it, so nothing you download in one reaches it.
 
 ## Development
 
