@@ -6,7 +6,7 @@ import { el } from "./dom";
 import { updateSettings } from "./settingsStore";
 
 const FILAMENT_CHOICES: Array<{ value: FilamentNames; label: string }> = [
-  { value: "original", label: "Keep the names in the file" },
+  { value: "original", label: "Original" },
   { value: "generic", label: "Generic" },
   { value: "snapmaker", label: "Snapmaker" },
 ];
@@ -79,8 +79,8 @@ export function renderOptions(container: HTMLElement, convert: ConvertSettings, 
       el("label", { class: "check" }, hardened, "My nozzles are hardened steel"),
       el("p", { class: "help" }, "The stock U1 0.4 nozzle is stainless steel. Tick this if you fitted hardened steel, so Snapmaker Orca warns about abrasive filaments correctly.")),
     el("div", { class: "field" },
-      el("label", { for: "filament-names" }, "Filament names"),
+      el("label", { for: "filament-names" }, "Filament"),
       filament,
-      el("p", { class: "help" }, "Only the name and brand change; temperatures, flow and retraction stay as the creator set them. Snapmaker Space accepts a file only if every filament name starts with Snapmaker or Generic.")),
+      el("p", { class: "help" }, "Only the filament's name and brand can change here; temperatures, flow and retraction always stay as the creator set them. Original keeps the names from the file (Snapmaker Orca lists them as custom filaments, which is fine). Generic and Snapmaker relabel them to presets Snapmaker Orca ships, for uploads to Snapmaker Space.")),
   );
 }
