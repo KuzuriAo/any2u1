@@ -141,3 +141,14 @@ test("the settings page shows the notice too", async () => {
   const page = await session.open("settings.html");
   await expect(page.locator("#release-notice")).toContainText(`${releases[0]} is now available`);
 });
+
+test("the bundled catalog lists every release by number, with no older-versions control", async () => {
+  const releases = await releasesOf(session);
+  for (const path of ["convert.html", "settings.html"]) {
+    const page = await session.open(path);
+    if (path === "convert.html") await page.locator("summary").click();
+    await expect(page.locator("#orca-version option")).toHaveCount(releases.length + 1);
+    await expect(page.getByRole("button", { name: "Older versions" })).toHaveCount(0);
+    await expect(page.locator("#orca-version optgroup")).toHaveCount(0);
+  }
+});

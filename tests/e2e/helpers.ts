@@ -49,14 +49,15 @@ export type Session = {
   pendingCount(): Promise<number>;
 };
 
-export async function launch(): Promise<Session> {
+/** Starts a browser with the built extension, or with the copy of it at `extension`. */
+export async function launch(extension: string = extensionPath): Promise<Session> {
   const downloads = mkdtempSync(join(tmpdir(), "extension-downloads-"));
   const profile = mkdtempSync(join(tmpdir(), "extension-profile-"));
   mkdirSync(join(profile, "Default"));
   writeFileSync(join(profile, "Default", "Preferences"), JSON.stringify({ download: { default_directory: downloads, prompt_for_download: false } }));
   const context = await chromium.launchPersistentContext(profile, {
     channel: "chromium",
-    args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+    args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`],
     ignoreHTTPSErrors: true,
     acceptDownloads: true,
   });

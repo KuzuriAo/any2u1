@@ -45,6 +45,27 @@ export function activeRelease(chosen: string | null, releases: readonly string[]
   return newer[0] ?? releases[0];
 }
 
+export type ReleaseGroups = { shown: string[]; older: string[]; olderOpen: boolean };
+
+/** A release's major and minor number, such as "2.4" for 2.4.1. */
+const minorOf = (release: string) => release.split(".").slice(0, 2).join(".");
+
+/**
+ * How the picker lists releases. Shown: every release with the newest's major and minor number, plus the newest of
+ * the next minor number down. Older: the rest, newest first, behind a control that starts open when the choice a
+ * conversion uses (`exact`, from {@link activeRelease}) is one of them.
+ */
+export function releaseGroups(releases: readonly string[], exact: string | null): ReleaseGroups {
+  const sorted = [...releases].sort((a, b) => compareReleases(b, a));
+  const newest = sorted[0];
+  if (newest === undefined) return { shown: [], older: [], olderOpen: false };
+  const current = sorted.filter((release) => compareReleases(minorOf(release), minorOf(newest)) === 0);
+  const previous = sorted.find((release) => compareReleases(minorOf(release), minorOf(newest)) < 0);
+  const shown = previous === undefined ? current : [...current, previous];
+  const older = sorted.filter((release) => !shown.includes(release));
+  return { shown, older, olderOpen: exact !== null && older.includes(exact) };
+}
+
 /**
  * The choice to keep after an update is checked. A first run pins the newest, so a later update never moves anyone to a
  * release they may not run without asking; a choice the catalog dropped moves to the next release up, pinned the same

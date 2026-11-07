@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from "vitest";
-import { activeRelease, compareReleases, parseKnownReleases, releaseChange, releaseNoticeText, settledChoice } from "../../src/core/releases";
+import { activeRelease, compareReleases, parseKnownReleases, releaseChange, releaseGroups, releaseNoticeText, settledChoice } from "../../src/core/releases";
 
 const now = ["2.4.2", "2.4.1", "2.4.0"];
 
@@ -40,6 +40,37 @@ describe("activeRelease", () => {
   it("moves a dropped choice newer than every release to the newest", () => {
     expect(activeRelease("2.4.3", now)).toBe("2.4.2");
     expect(activeRelease("2.4.3", [])).toBeUndefined();
+  });
+});
+
+describe("releaseGroups", () => {
+  const groups = (releases: string[], exact: string | null = null) => releaseGroups(releases, exact);
+  it.each([
+    { catalog: ["2.4.1", "2.4.0"], shown: ["2.4.1", "2.4.0"], older: [] },
+    { catalog: ["2.5.0", "2.4.3"], shown: ["2.5.0", "2.4.3"], older: [] },
+    { catalog: ["2.5.1", "2.5.0", "2.4.3", "2.4.2", "2.4.1", "2.4.0"], shown: ["2.5.1", "2.5.0", "2.4.3"], older: ["2.4.2", "2.4.1", "2.4.0"] },
+    { catalog: ["3.0.0", "2.5.1", "2.5.0"], shown: ["3.0.0", "2.5.1"], older: ["2.5.0"] },
+  ])("shows $shown and puts $older under Older for $catalog", ({ catalog, shown, older }) => {
+    expect(groups(catalog)).toEqual({ shown, older, olderOpen: false });
+  });
+  it("starts the older list open when the saved choice is in it, and only then", () => {
+    const catalog = ["2.5.1", "2.5.0", "2.4.3", "2.4.2", "2.4.1", "2.4.0"];
+    expect(groups(catalog, "2.4.1").olderOpen).toBe(true);
+    expect(groups(catalog, "2.4.3").olderOpen).toBe(false);
+    expect(groups(catalog, "2.5.1").olderOpen).toBe(false);
+    expect(groups(catalog, null).olderOpen).toBe(false);
+  });
+  it("opens it for a dropped choice whose next version up is older", () => {
+    const catalog = ["2.5.1", "2.5.0", "2.4.3", "2.4.1", "2.4.0"];
+    expect(groups(catalog, activeRelease("2.4.2", catalog) ?? null).olderOpen).toBe(false);
+    expect(groups(catalog, activeRelease("2.3.9", catalog) ?? null).olderOpen).toBe(true);
+  });
+  it("compares release numbers as numbers, in whatever order they come", () => {
+    expect(groups(["2.9.1", "2.10.0", "2.9.0", "2.8.4"])).toEqual({ shown: ["2.10.0", "2.9.1"], older: ["2.9.0", "2.8.4"], olderOpen: false });
+  });
+  it("lists one release alone, and nothing for an empty catalog", () => {
+    expect(groups(["2.4.1"])).toEqual({ shown: ["2.4.1"], older: [], olderOpen: false });
+    expect(groups([])).toEqual({ shown: [], older: [], olderOpen: false });
   });
 });
 

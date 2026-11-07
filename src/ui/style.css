@@ -60,6 +60,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.link { border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; font-size: 0.85rem; }
 button.link:hover { color: var(--ink); }
+button.disclosure { display: block; margin-top: 0.35rem; }
+button.disclosure[hidden] { display: none; }
+button.disclosure::before { content: "\25B8" / ""; display: inline-block; width: 1em; text-decoration: none; }
+button.disclosure[aria-expanded="true"]::before { content: "\25BE" / ""; }
 .tip button.link { color: inherit; }
 
 .plain, .list { list-style: none; margin: 0; padding: 0; }
