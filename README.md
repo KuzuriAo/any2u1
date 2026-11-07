@@ -124,11 +124,15 @@ Your files stay on your device. The only requests the extension makes are for it
 
 ```sh
 npm run typecheck
-npm test            # unit tests
-npm run test:e2e    # builds, then runs the browser tests in Chromium
+npm test              # unit tests
+npm run test:e2e      # builds, then runs the browser tests in Chromium
+npm run lint:firefox  # builds, then checks the Firefox build with web-ext; any warning fails it
+FIREFOX_BINARY=/path/to/firefox npm run test:firefox  # builds, then runs the Firefox tests
 ```
 
 The browser tests need Playwright's Chromium once (`npx playwright install chromium`) and `openssl` to make a throwaway certificate for their local test site. They check, among other things, that the manifest asks for exactly the permissions above, and that the output is byte-for-byte what the library produces for the same file and options.
+
+The Firefox tests need two Firefoxes from mozilla.org, installed once: Firefox ESR 153, the oldest the extension supports, and the current release. Run them with each. `FIREFOX_BINARY` is the program itself: on macOS, for example, `/Applications/Firefox.app/Contents/MacOS/firefox`, and on Linux the `firefox` in the unpacked folder. There's no driver to install.
 
 `dist/chrome` also serves Edge and Brave; the Firefox build differs only in its manifest. The settings page names the commit a build was made from, so an older build still loaded in a browser is easy to tell apart.
 
