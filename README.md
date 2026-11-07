@@ -151,6 +151,12 @@ The build is reproducible. These two setups give byte-identical files: macOS on 
 
 To report a security problem, see [SECURITY.md](SECURITY.md). Please don't open a public issue for it.
 
+## Support
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/kuzuriao/)
+
+any2u1 is free, with nothing held back for paying users. If it saves you time, you can leave a tip on [Ko-fi](https://ko-fi.com/kuzuriao/).
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE). The extension ships the license notices of the packages it bundles, in its `licenses` folder.
