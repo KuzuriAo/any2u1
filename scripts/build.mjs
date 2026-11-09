@@ -62,7 +62,8 @@ writeFileSync(join(licenses, "README.txt"), [
 
 const base = {
   manifest_version: 3,
-  name: "any2u1",
+  // The stores' listing title: the brand, then what it does, for store search (45 characters at most, Edge's and Firefox's limit).
+  name: "any2u1: 3MF to Snapmaker U1",
   version,
   description: "Turn a 3MF from any site into a Snapmaker U1 file, on your device. Bambu, Creality, Anycubic, Elegoo, Flash Studio, Prusa, QIDI.",
   permissions: ["downloads", "storage"],

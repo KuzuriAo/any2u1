@@ -29,6 +29,12 @@ for (const target of ["chrome", "firefox"]) {
       expect(manifestOf(target).incognito).toBe("not_allowed");
     });
 
+    test("is named for store search, short enough for every store", () => {
+      const name = manifestOf(target).name as string;
+      expect(name).toBe("any2u1: 3MF to Snapmaker U1");
+      expect(name.length).toBeLessThanOrEqual(45);
+    });
+
     test("has a description short enough for the stores", () => {
       const description = manifestOf(target).description as string;
       expect(description.length).toBeLessThanOrEqual(132);
