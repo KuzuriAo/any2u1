@@ -4,7 +4,7 @@ import { convert, filamentNotes } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import { FILAMENT_HELP } from "../../src/core/settings";
+import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
 import { libraryVersion } from "./helpers";
 import { expectOnlyThese, fixture, fixturePath, launch, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
 
@@ -349,7 +349,8 @@ test("a PrusaSlicer scene keeps all four filaments in order with their colors, a
   const notes = page.locator(".converted .notes li");
   await expect(notes.filter({ hasText: "extruder colors" })).toHaveCount(1);
   await expect(notes.filter({ hasText: "become pauses" })).toHaveCount(1);
-  expect(await notes.allTextContents()).toEqual(library.report.warnings);
+  // In the library's order, each starting with a capital.
+  expect(await notes.allTextContents()).toEqual(library.report.warnings.map((note) => note.charAt(0).toUpperCase() + note.slice(1)));
   await expect(page.locator(".converted")).not.toContainText(/limit|only four|at most four/i);
   expect(savedNames(session)).toEqual(["prusaslicer-2.9.6-scene_U1.3mf"]);
 });
@@ -379,10 +380,22 @@ test("a PrusaSlicer project on several beds converts, and the library's note abo
   await expect(page.locator(".converted .notes li").filter({ hasText: "4 beds become 4 plates" })).toHaveCount(1);
 });
 
-test("a match that wasn't plain says why under the profile, and a plain one says nothing", async () => {
+/** Waits until the stored settings have the nozzle size chosen, so a conversion started next reads it. */
+const storedNozzle = () => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { nozzle?: string } } | undefined)?.convert?.nozzle);
+
+async function chooseNozzle(page: Awaited<ReturnType<Session["open"]>>, size: string): Promise<void> {
+  await page.locator("summary").click();
+  await page.selectOption("#nozzle-size", size);
+  await expect.poll(storedNozzle).toBe(size);
+}
+
+/** The version note the library writes into a converted file. */
+const stampOf = (file: Uint8Array) => JSON.parse(strFromU8(unzipSync(file)["Metadata/any2orca.json"]!)) as { profileId: string; options: { nozzle?: { choice: string; size: string } } };
+
+test("a match that wasn't plain says why among the notes, once, and a plain one says nothing", async () => {
   const entries = unzipSync(fixture(SAMPLE));
   const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown>;
-  // A 0.5 mm nozzle has no U1 profile, so the 0.4 one is used, and the report says why.
+  // A 0.5 mm nozzle has no U1 profile: the file is made for 0.4 mm nozzles, and the report says so.
   entries["Metadata/project_settings.config"] = strToU8(JSON.stringify({ ...settings, nozzle_diameter: ["0.5"] }));
   const variant = Buffer.from(zipSync(entries));
   const library = await convert(variant, { profiles: bundledProfileSource() });
@@ -390,12 +403,28 @@ test("a match that wasn't plain says why under the profile, and a plain one says
 
   const page = await session.open("convert.html");
   await page.setInputFiles("#file", { name: "half-mm.3mf", mimeType: "model/3mf", buffer: variant });
-  await expect(page.locator(".converted .profile-notes li")).toHaveCount(library.report.profileNotes.length);
-  await expect(page.locator(".converted .profile-notes li").first()).toContainText("0.5mm nozzle");
+  await expect(page.locator(".converted .saved")).toContainText("for 0.4 mm nozzles");
+  await expect(page.locator(".converted .notes li").filter({ hasText: "set up for a 0.5 mm nozzle; converted for your 0.4 mm nozzles" })).toHaveCount(1);
+  await expect(page.locator(".converted").getByText("converted for your 0.4 mm nozzles (choose 0.5 mm")).toHaveCount(1);
 
   await page.setInputFiles("#file", fixturePath(SAMPLE));
   await expect(page.locator(".converted")).toHaveCount(2);
-  await expect(page.locator(".converted").nth(1).locator(".profile-notes")).toHaveCount(0);
+  await expect(page.locator(".converted").nth(1).locator(".notes")).toHaveCount(0);
+});
+
+test("with Match the file, a size with no U1 profile still gets the 0.4 mm one, and says why", async () => {
+  const entries = unzipSync(fixture(SAMPLE));
+  const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown>;
+  entries["Metadata/project_settings.config"] = strToU8(JSON.stringify({ ...settings, nozzle_diameter: ["0.5"] }));
+  const variant = Buffer.from(zipSync(entries));
+  const library = await convert(variant, { profiles: bundledProfileSource(), nozzle: "match" });
+
+  const page = await session.open("convert.html");
+  await chooseNozzle(page, "match");
+  await page.setInputFiles("#file", { name: "half-mm.3mf", mimeType: "model/3mf", buffer: variant });
+  expect(library.report.profileNotes.length).toBeGreaterThan(0);
+  await expect(page.locator(".converted .notes li").filter({ hasText: "0.5mm nozzle, which has no U1 profile" })).toHaveCount(1);
+  expect(sha256(await session.savedFile("half-mm_U1.3mf"))).toBe(sha256(library.output));
 });
 
 test("a filament color that isn't a plain hex color is never put into the page's styles", async () => {
@@ -425,7 +454,7 @@ test("high-flow reaches a 0.4 file, is named on the result, and gives the same b
   expect(sha256(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf")))).toBe(sha256(library.output));
 });
 
-test("on a nozzle with no high-flow option, it isn't sent: no warning, and the result doesn't claim it", async () => {
+test("a 0.6 mm project is made for 0.4 mm nozzles by default, so high-flow and hardened nozzles apply to it", async () => {
   const variant = nozzleVariant("0.6", "0.3", "0.30mm Standard @BBL X1C 0.6 nozzle");
   const page = await session.open("convert.html");
   await page.locator("summary").click();
@@ -434,10 +463,89 @@ test("on a nozzle with no high-flow option, it isn't sent: no warning, and the r
   await page.check("#hardened");
   await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { hardenedNozzles?: boolean } } | undefined)?.convert?.hardenedNozzles)).toBe(true);
   await page.setInputFiles("#file", { name: "six.3mf", mimeType: "model/3mf", buffer: variant });
-  await expect(page.locator(".converted .saved")).toContainText("0.6 nozzle");
+  await expect(page.locator(".converted .saved")).toContainText("for 0.4 mm nozzles");
+  await expect(page.locator(".converted .saved")).toContainText("high-flow on T1, hardened steel nozzles");
+  await expect(page.locator(".converted .notes li").filter({ hasText: "set up for a 0.6 mm nozzle; converted for your 0.4 mm nozzles" })).toHaveCount(1);
+  const library = await convert(variant, { profiles: bundledProfileSource(), highFlowHotends: [true, false, false, false], hardenedNozzles: true });
+  expect(sha256(await session.savedFile("six_U1.3mf"))).toBe(sha256(library.output));
+});
+
+test("with Match the file, a 0.6 mm project stays 0.6: high-flow isn't sent, no warning, and the result doesn't claim it", async () => {
+  const variant = nozzleVariant("0.6", "0.3", "0.30mm Standard @BBL X1C 0.6 nozzle");
+  const page = await session.open("convert.html");
+  await chooseNozzle(page, "match");
+  await page.check("#high-flow-1");
+  await page.check("#hardened");
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { hardenedNozzles?: boolean } } | undefined)?.convert?.hardenedNozzles)).toBe(true);
+  await page.setInputFiles("#file", { name: "six.3mf", mimeType: "model/3mf", buffer: variant });
+  await expect(page.locator(".converted .saved")).toContainText("0.30mm Standard, for 0.6 mm nozzles");
   await expect(page.locator(".converted .saved")).not.toContainText("high-flow");
   await expect(page.locator(".converted .saved")).not.toContainText("hardened");
   await expect(page.locator(".converted .notes")).toHaveCount(0);
+  const library = await convert(variant, { profiles: bundledProfileSource(), nozzle: "match", highFlowHotends: false, hardenedNozzles: true });
+  expect(sha256(await session.savedFile("six_U1.3mf"))).toBe(sha256(library.output));
+});
+
+test("a 0.4 mm project with 0.6 mm chosen is made for 0.6 mm nozzles, says so, and gets no high-flow", async () => {
+  const page = await session.open("convert.html");
+  await chooseNozzle(page, "0.6");
+  await expect(page.locator("#options-version")).toContainText("and 0.6 mm nozzles");
+  await page.check("#high-flow-1");
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { highFlowToolheads?: boolean[] } } | undefined)?.convert?.highFlowToolheads?.[0])).toBe(true);
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted .saved")).toContainText(/using 0\.\d+mm [A-Za-z ]+, for 0\.6 mm nozzles and Snapmaker Orca \d/);
+  await expect(page.locator(".converted .saved")).not.toContainText("high-flow");
+  await expect(page.locator(".converted").getByText("converted for your 0.6 mm nozzles").first()).toBeVisible();
+
+  const saved = await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf"));
+  const stamp = stampOf(saved);
+  expect(stamp.options.nozzle).toEqual({ choice: "0.6", size: "0.6" });
+  expect(stamp.profileId).toMatch(/^snapmaker-u1-0\.6-/);
+  const settings = JSON.parse(strFromU8(unzipSync(saved)["Metadata/project_settings.config"]!)) as { print_settings_id: string; nozzle_diameter: string[] };
+  expect(settings.print_settings_id).toContain("(0.6 nozzle)");
+  expect(settings.nozzle_diameter).toEqual(["0.6", "0.6", "0.6", "0.6"]);
+  const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), nozzle: "0.6", highFlowHotends: false });
+  expect(sha256(saved)).toBe(sha256(library.output));
+});
+
+test("the default is 0.4 mm, recorded in the file", async () => {
+  const page = await session.open("convert.html");
+  await page.locator("summary").click();
+  await expect(page.locator("#nozzle-size")).toHaveValue("0.4");
+  await expect(page.locator("#options-version")).toContainText("and 0.4 mm nozzles");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  const stamp = stampOf(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf")));
+  expect(stamp.options.nozzle).toEqual({ choice: "0.4", size: "0.4" });
+});
+
+test("a nozzle size stored wrongly reads as 0.4 mm, and the file is made for 0.4 mm", async () => {
+  await setSettings(session, { convert: { nozzle: "0.5" } });
+  const page = await session.open("convert.html");
+  await page.locator("summary").click();
+  await expect(page.locator("#nozzle-size")).toHaveValue("0.4");
+  await page.setInputFiles("#file", fixturePath(SAMPLE));
+  await expect(page.locator(".converted .saved")).toContainText("for 0.4 mm nozzles");
+  expect(stampOf(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf"))).options.nozzle).toEqual({ choice: "0.4", size: "0.4" });
+});
+
+test("the settings page has the nozzle size before the high-flow toolheads, with its help, and keeps a choice", async () => {
+  const page = await session.open("settings.html");
+  const select = page.locator("#nozzle-size");
+  await expect(select).toHaveValue("0.4");
+  await expect(select.locator("option")).toHaveText(["0.2 mm", "0.4 mm", "0.6 mm", "0.8 mm", "Match the file"]);
+  await expect(page.locator("label[for=nozzle-size]")).toHaveText("Your U1's nozzle size");
+  const field = page.locator(".field").filter({ has: select });
+  await expect(field.locator(".help")).toHaveText(NOZZLE_HELP);
+  await expect(field.locator("+ .field .label")).toHaveText("High-flow toolheads");
+  await page.selectOption("#nozzle-size", "0.8");
+  await expect.poll(storedNozzle).toBe("0.8");
+  await page.reload();
+  await expect(page.locator("#nozzle-size")).toHaveValue("0.8");
+  const convertPage = await session.open("convert.html");
+  await expect(convertPage.locator("#options-version")).toContainText("and 0.8 mm nozzles");
+  await page.selectOption("#nozzle-size", "match");
+  await expect.poll(storedNozzle).toBe("match");
+  await expect(convertPage.locator("#options-version")).toContainText("and the file's nozzle size");
 });
 
 /** An extension page's clipboard can't be granted to a test, so this records what's written and lets the real write run. */

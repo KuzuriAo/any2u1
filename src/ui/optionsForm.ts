@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The conversion options, the same on the convert page and the settings page. */
 import { activeRelease, releaseGroups } from "../core/releases";
-import { FILAMENT_HELP, type ConvertSettings, type FilamentNames, type Settings } from "../core/settings";
+import { FILAMENT_HELP, NOZZLE_HELP, NOZZLE_SIZES, type ConvertSettings, type FilamentNames, type NozzleSize, type Settings } from "../core/settings";
 import { el } from "./dom";
 import { updateSettings } from "./settingsStore";
 
@@ -51,6 +51,10 @@ export function renderOptions(container: HTMLElement, convert: ConvertSettings, 
   version.addEventListener("change", () => save((c) => (c.snapmakerOrcaVersion = version.value === NEWEST ? null : version.value)));
   const olderToggle = older.length > 0 ? olderVersions(version, el("optgroup", { label: "Older versions" }, ...older.map(option)), olderOpen) : null;
 
+  const nozzle = el("select", { id: "nozzle-size" });
+  for (const size of NOZZLE_SIZES) nozzle.append(el("option", { value: size, selected: size === convert.nozzle }, size === "match" ? "Match the file" : `${size} mm`));
+  nozzle.addEventListener("change", () => save((c) => (c.nozzle = nozzle.value as NozzleSize)));
+
   const toolheads = el("div", { class: "toolheads" });
   convert.highFlowToolheads.forEach((on, index) => {
     const box = el("input", { type: "checkbox", id: `high-flow-${index + 1}`, checked: on });
@@ -71,6 +75,10 @@ export function renderOptions(container: HTMLElement, convert: ConvertSettings, 
       version,
       olderToggle,
       el("p", { class: "help" }, "Pick the version you have installed. Newest moves up when an update of the extension adds a release; a number stays until you change it.")),
+    el("div", { class: "field" },
+      el("label", { for: "nozzle-size" }, "Your U1's nozzle size"),
+      nozzle,
+      el("p", { class: "help" }, NOZZLE_HELP)),
     el("div", { class: "field" },
       el("span", { class: "label" }, "High-flow toolheads"),
       toolheads,

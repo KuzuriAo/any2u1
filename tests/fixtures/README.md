@@ -1,10 +1,11 @@
 # Test files
 
-One small scene saved by each of the Bambu Studio family slicers the extension supports, and five PrusaSlicer projects. They come from the any2orca library's test suite, which has the details of how each was made. A project from a slicer it can't convert is made in the tests, from the first PrusaSlicer file.
+One small scene saved by each of the Bambu Studio family slicers the extension supports, a Bambu Studio project with nozzles of two sizes and a 2.85 mm filament, and five PrusaSlicer projects. They come from the any2orca library's test suite, which has the details of how each was made. A project from a slicer it can't convert is made in the tests, from the first PrusaSlicer file.
 
 | File | Saved by |
 |---|---|
 | `bambu-studio-2.8.4.57-beta.3mf` | Bambu Studio 2.8.4.57 beta |
+| `bambu-studio-2.9.1.70-h3c-mixed.3mf` | Bambu Studio 2.9.1.70: the Bambu Lab H3C with nozzles of two sizes, filament 1 on a 0.2 mm nozzle and the others on 0.4 mm, and filament 3 a 2.85 mm TPU |
 | `creality-print-7.3.0.6157-scene.3mf` | Creality Print 7.3.0.6157 |
 | `anycubic-slicer-next-2.0.0.3-scene.3mf` | Anycubic Slicer Next 2.0.0.3 |
 | `elegoo-slicer-1.5.3.5-scene.3mf` | ElegooSlicer 1.5.3.5 |

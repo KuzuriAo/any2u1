@@ -146,3 +146,16 @@ test("the Snapmaker option's notes are the library's sentences, and the file is 
   expect(notes.join(" ")).toContain("Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C");
   expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
 });
+
+test("the nozzle size chosen reaches the library: a 0.4 mm project made for 0.6 mm nozzles, the library's file", async () => {
+  const page = await firefox.open("convert.html");
+  await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+  await page.evaluate(`(() => { const select = document.querySelector("#nozzle-size"); select.value = "0.6"; select.dispatchEvent(new Event("change")); return true; })()`);
+  await page.until(`browser.storage.local.get("settings").then(({ settings }) => settings?.convert?.nozzle === "0.6")`);
+  await page.setFiles("#file", [{ name: SAMPLE, bytes: fixture(SAMPLE) }], "#choose");
+  const output = SAMPLE.replace(/\.3mf$/, "_U1.3mf");
+  await page.until(`document.querySelector(".converted strong")?.textContent === ${JSON.stringify(output)}`);
+  expect(await page.evaluate<string>(`document.querySelector(".converted .saved").textContent`)).toContain("for 0.6 mm nozzles");
+  const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), nozzle: "0.6" });
+  expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
+});

@@ -8,6 +8,8 @@ import { elapsedText, receivedText } from "../core/progress";
 import { isPendingKey, listPending, removePending, type PendingDownload } from "../core/pending";
 import { deliveryOf, type Delivery } from "../core/recognize";
 import { activeRelease } from "../core/releases";
+import { madeForText } from "../core/result";
+import type { ConvertSettings } from "../core/settings";
 import { convertFile, listReleases, stopConverting, type Converted, type Outcome } from "./engine";
 import { button, el, need } from "./dom";
 import { renderOptions } from "./optionsForm";
@@ -174,6 +176,9 @@ function swatch(color: string): HTMLSpanElement {
   return element;
 }
 
+/** The library's sentences can start in lower case; only the first letter changes. */
+const sentence = (note: string) => note.charAt(0).toUpperCase() + note.slice(1);
+
 /** Every filament as the file has it, in its order. Nothing here can change the list. */
 function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
   if (filaments.length === 0) return null;
@@ -199,11 +204,11 @@ function showOutcome(outcome: Outcome, site: string | null = null, ask = false):
   const item = el("li", { class: "converted" },
     el("strong", {}, outcome.name),
     outcome.alreadyU1 && el("p", { class: "already" }, "This file was already set up for the Snapmaker U1. It has still been converted, and saved as a new file."),
-    el("p", { class: "saved" }, `${ask ? "Saved where you chose" : "Saved to your downloads"}, using ${outcome.profile}${[outcome.orcaVersion ? `for Snapmaker Orca ${outcome.orcaVersion}` : "", ...outcome.printer].filter(Boolean).map((part) => `, ${part}`).join("")}. `),
-    // The library's sentences can start in lower case; only the first letter changes.
-    outcome.profileNotes.length > 0 && el("ul", { class: "profile-notes" }, ...outcome.profileNotes.map((note) => el("li", {}, note.charAt(0).toUpperCase() + note.slice(1)))),
-    filamentList(outcome.filaments),
-    outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, note))));
+    el("p", { class: "saved" }, `${ask ? "Saved where you chose" : "Saved to your downloads"}, ${madeForText(outcome)}. `),
+    // In the library's order, which puts first what needs doing, such as loading other filament, and above the filaments, so
+    // the first is in sight: a file has at least four. Why the profile was chosen is among them.
+    outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, sentence(note)))),
+    filamentList(outcome.filaments));
   results.append(item);
   save(outcome, item, ask);
   need("#open-tip").hidden = false;
@@ -482,19 +487,20 @@ api.storage.onChanged.addListener((changes, area) => {
 async function drawOptions(): Promise<void> {
   const [settings, releases] = await Promise.all([loadSettings(), listReleases()]);
   renderOptions(options, settings.convert, releases);
-  drawVersion(settings.convert.snapmakerOrcaVersion, releases);
+  drawMadeFor(settings.convert, releases);
 }
 
 // The options start closed in the small window, so what the file will be converted for stays in sight.
-function drawVersion(chosen: string | null, releases: readonly string[]): void {
-  const version = activeRelease(chosen, releases);
-  need("#options-version").textContent = version ? `(for Snapmaker Orca ${version})` : "";
+function drawMadeFor(convert: ConvertSettings, releases: readonly string[]): void {
+  const version = activeRelease(convert.snapmakerOrcaVersion, releases);
+  const nozzle = convert.nozzle === "match" ? "the file's nozzle size" : `${convert.nozzle} mm nozzles`;
+  need("#options-version").textContent = `(for ${version ? `Snapmaker Orca ${version} and ` : ""}${nozzle})`;
 }
 
 // Redrawing options another page changed is fine; redrawing under the user's own click isn't needed, since the values match.
 onSettingsChanged((settings) => {
   if (!options.contains(document.activeElement)) void drawOptions();
-  else void listReleases().then((releases) => drawVersion(settings.convert.snapmakerOrcaVersion, releases));
+  else void listReleases().then((releases) => drawMadeFor(settings.convert, releases));
 });
 
 // The notice comes first: it clears a saved choice the catalog no longer holds.

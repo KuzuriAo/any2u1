@@ -71,7 +71,7 @@ test("the newest chosen by number stays put when an update adds a release", asyn
   await page.locator("summary").click();
   await expect(page.locator("#orca-version")).toHaveValue(chosen);
   await page.setInputFiles("#file", fixturePath(SAMPLE));
-  await expect(page.locator(".saved")).toContainText(`for Snapmaker Orca ${chosen}`);
+  await expect(page.locator(".saved")).toContainText(`and Snapmaker Orca ${chosen}`);
   expect(await storedVersion(session)).toBe(chosen);
 
   // Dismissed, it stays away; the next new release brings it back.
@@ -115,7 +115,7 @@ test("a chosen release the catalog dropped: moves to the next version up, and th
   await page.locator("summary").click();
   await expect(page.locator("#orca-version")).toHaveValue(nextUp);
   await page.setInputFiles("#file", fixturePath(SAMPLE));
-  await expect(page.locator(".saved")).toContainText(`for Snapmaker Orca ${nextUp}`);
+  await expect(page.locator(".saved")).toContainText(`and Snapmaker Orca ${nextUp}`);
   // The library was asked for that version, not its newest.
   const saved = sha256(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf")));
   expect(saved).toBe(sha256((await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), snapmakerOrcaVersion: nextUp })).output));
@@ -132,7 +132,7 @@ test("each result and the options name the version chosen", async () => {
   await page.selectOption("#orca-version", older);
   await expect(page.locator("#options-version")).toContainText(`Snapmaker Orca ${older}`);
   await page.setInputFiles("#file", fixturePath(SAMPLE));
-  await expect(page.locator(".saved")).toContainText(`for Snapmaker Orca ${older}`);
+  await expect(page.locator(".saved")).toContainText(`and Snapmaker Orca ${older}`);
 });
 
 test("the settings page shows the notice too", async () => {

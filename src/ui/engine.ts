@@ -11,15 +11,15 @@ import { notesFor } from "../core/notes";
 import { is3mfName, outputName } from "../core/names";
 import { stageText } from "../core/progress";
 import { activeRelease } from "../core/releases";
-import { convertOptions, describePrinter, type ConvertSettings } from "../core/settings";
+import { convertOptions, describePrinter, nozzleFor, type ConvertSettings } from "../core/settings";
 
 export type Converted = {
   source: string;
   name: string;
   output: Uint8Array;
   profile: string;
-  /** Why the profile was matched, when the match wasn't plain. */
-  profileNotes: string[];
+  /** The nozzle size the file is made for, e.g. "0.4". */
+  nozzle: string;
   orcaVersion: string | undefined;
   /** Every filament, in the file's order, as the converted file has it. Never reordered, merged or dropped. */
   filaments: ReportFilament[];
@@ -103,17 +103,19 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
   const { project, inspection } = await guarded(converter.open(bytes, { transfer: true }));
   try {
     const release = activeRelease(convert.snapmakerOrcaVersion, releases);
-    // The catalog says which nozzle sizes have a high-flow option; the same check the web app makes.
-    const nozzle = inspection.matchNozzleDiameter ?? "0.4";
-    const { profiles } = await guarded(converter.listProfiles({ nozzleDiameter: nozzle, ...(release ? { snapmakerOrcaVersion: release } : {}) }));
+    // The catalog says which nozzle sizes have a high-flow option, and it's the size the file will be made for that counts,
+    // not the creator's; the same check the web app makes.
+    const { profiles } = await guarded(converter.listProfiles({ nozzleDiameter: nozzleFor(convert.nozzle, inspection.matchNozzleDiameter), ...(release ? { snapmakerOrcaVersion: release } : {}) }));
     const highFlowSupported = profiles.some((profile) => profile.highFlowSupported);
     const { output, report } = await guarded(project.convert({ ...convertOptions(convert, releases, highFlowSupported), onProgress: (stage) => onStep(stageText(stage)) }));
+    // What the library made it for, which is what the result says.
+    const nozzle = report.nozzle?.size ?? report.profile.nozzleDiameter;
     return {
       source,
       name: outputName(source),
       output,
       profile: report.profile.displayName,
-      profileNotes: report.profileNotes,
+      nozzle,
       filaments: report.filaments,
       orcaVersion: release,
       printer: describePrinter(convert, nozzle, highFlowSupported),

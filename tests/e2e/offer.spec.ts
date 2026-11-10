@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { convert } from "any2orca";
+import { convert, filamentNotes } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { defaultSettings } from "../../src/core/settings";
@@ -37,6 +37,31 @@ test("a download the server lets anyone read: one click, no prompt, converted, n
   expect(fetchRequest.headers.referer).toBeUndefined();
   expectOnlyThese(session.requests, session.origin, [`${site.url}/`]);
   expect(site.log.every((entry) => entry.path === "/" || entry.path === "/open/desk.3mf")).toBe(true);
+});
+
+test("in the small window, an H3C project's first note is in sight without scrolling, and says which filament to load", async () => {
+  const name = "bambu-studio-2.9.1.70-h3c-mixed.3mf";
+  const h3c = await startSite(fixture(name));
+  try {
+    await h3c.download(session, "/open/desk.3mf");
+    const offer = await session.offerWindow();
+    await offer.locator("button.primary").click();
+    await expect(offer.locator(".converted strong")).toHaveText("desk_U1.3mf");
+    const library = await convert(fixture(name), { profiles: bundledProfileSource() });
+    expect(library.report.warnings[0]).toMatch(/^Filament 3 was Bambu TPU 75A\(2\.85mm\) @BBL H3C/);
+    const first = offer.locator(".converted .notes li").first();
+    await expect(first).toHaveText(library.report.warnings[0]!);
+    await expect(first).toBeInViewport({ ratio: 1 });
+    expect(await offer.evaluate(() => window.scrollY)).toBe(0);
+    // Every note in the library's order, each starting with a capital, why the profile was chosen among them; the filaments below.
+    const expected = [...library.report.warnings, ...filamentNotes(library.report)].map((note) => note.charAt(0).toUpperCase() + note.slice(1));
+    expect(await offer.locator(".converted .notes li").allTextContents()).toEqual(expected);
+    expect(library.report.profileNotes.length).toBeGreaterThan(0);
+    expect(await offer.locator(".converted .notes").evaluate((list) => list.compareDocumentPosition(list.parentElement!.querySelector(".filaments")!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    expect(sha256(await session.savedFile("desk_U1.3mf"))).toBe(sha256(library.output));
+  } finally {
+    await h3c.close();
+  }
 });
 
 test("its own output gets no second offer", async () => {

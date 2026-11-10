@@ -24,7 +24,7 @@ A project from another slicer gets a message naming it, and nothing is converted
 
 ## Try it
 
-You need [Node.js](https://nodejs.org/) 20.19 or newer and Git.
+You need [Node.js](https://nodejs.org/) 22 or newer and Git.
 
 ```sh
 git clone https://github.com/KuzuriAo/any2u1.git
@@ -90,15 +90,16 @@ The sites whose downloads get no offer. The **Not on** button beside an offer, w
 
 ### Default options
 
-<img width="560" alt="The Default options section: Snapmaker Orca version, High-flow toolheads, My nozzles are hardened steel, and Filament" src="docs/assets/settings-options.png" />
+<img width="560" alt="The Default options section: Snapmaker Orca version, Your U1's nozzle size, High-flow toolheads, My nozzles are hardened steel, and Filament" src="docs/assets/settings-options.png" />
 
 The same options are under **Options** on the convert page, and a change in either place is kept for the next file.
 
 | Setting | What it does | Default |
 |---|---|---|
 | **Snapmaker Orca version** | The Snapmaker Orca version the file is made for. Choose the version you run. | The newest the extension holds when it's installed |
-| **High-flow toolheads** | Tick each toolhead fitted with the Liber High Flow Hotend. It's used only for a file whose nozzle has a high-flow profile, and the result says which toolheads it applied to. | None ticked |
-| **My nozzles are hardened steel** | The stock U1 0.4 mm nozzle is stainless steel. Tick this if you fitted hardened steel, so Snapmaker Orca warns about abrasive filaments correctly. It applies to 0.4 mm files. | Off |
+| **Your U1's nozzle size** | The converted file is made for this size: 0.2, 0.4, 0.6 or 0.8 mm, one size for all four toolheads as in Snapmaker Orca, or **Match the file** for the size the creator used. A project made for another size is converted anyway, with a note. A filament the creator tuned for another nozzle size keeps its name, color and temperatures and takes the calibration of Snapmaker's U1 preset for its material at your size. A filament of another diameter, such as 2.85 mm, is set to 1.75 mm and takes a preset Snapmaker Orca ships for its material, where one fits. The result says so first, so you know what to load or check. | 0.4 mm |
+| **High-flow toolheads** | Tick each toolhead fitted with the Liber High Flow Hotend. It's used only when the file is made for a nozzle size with a high-flow profile, and the result says which toolheads it applied to. | None ticked |
+| **My nozzles are hardened steel** | The stock U1 0.4 mm nozzle is stainless steel. Tick this if you fitted hardened steel, so Snapmaker Orca warns about abrasive filaments correctly. It applies to files made for 0.4 mm nozzles. | Off |
 | **Filament** | Original (the default) keeps the creator's filaments exactly, names and settings. Generic and Snapmaker switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space, which accepts a file only if every filament name starts with Snapmaker or Generic; colors and order stay. The result says which filaments now use a preset's settings, and what that changed. | Original |
 
 How the **Snapmaker Orca version** follows updates:
