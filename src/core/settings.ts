@@ -103,14 +103,6 @@ export function convertOptions(convert: ConvertSettings, releases: readonly stri
   };
 }
 
-/**
- * The size a file will be made for, before it's converted: the size chosen, or with "match" the creator's size as the library
- * snaps it to a U1 size (`inspection.matchNozzleDiameter`), and the stock size where the file gives none, as the library does.
- */
-export function nozzleFor(choice: NozzleSize, creatorSize: string | null): string {
-  return choice === "match" ? (creatorSize ?? DEFAULT_NOZZLE_SIZE) : choice;
-}
-
 /** The printer options a file was made with, for its result: only those that applied to the size it was made for. */
 export function describePrinter(convert: ConvertSettings, nozzle: string, highFlowSupported: boolean): string[] {
   const toolheads = convert.highFlowToolheads.flatMap((on, index) => (on ? [`T${index + 1}`] : []));

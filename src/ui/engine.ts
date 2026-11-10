@@ -11,7 +11,7 @@ import { notesFor } from "../core/notes";
 import { is3mfName, outputName } from "../core/names";
 import { stageText } from "../core/progress";
 import { activeRelease } from "../core/releases";
-import { convertOptions, describePrinter, nozzleFor, type ConvertSettings } from "../core/settings";
+import { convertOptions, describePrinter, type ConvertSettings } from "../core/settings";
 
 export type Converted = {
   source: string;
@@ -103,10 +103,13 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
   const { project, inspection } = await guarded(converter.open(bytes, { transfer: true }));
   try {
     const release = activeRelease(convert.snapmakerOrcaVersion, releases);
-    // The catalog says which nozzle sizes have a high-flow option, and it's the size the file will be made for that counts,
-    // not the creator's; the same check the web app makes.
-    const { profiles } = await guarded(converter.listProfiles({ nozzleDiameter: nozzleFor(convert.nozzle, inspection.matchNozzleDiameter), ...(release ? { snapmakerOrcaVersion: release } : {}) }));
-    const highFlowSupported = profiles.some((profile) => profile.highFlowSupported);
+    const releaseOption = release ? { snapmakerOrcaVersion: release } : {};
+    // Whether high-flow applies depends on the profile the file will be made with, for the size chosen, not the creator's:
+    // the library matches it the same way the conversion does, given the same size and release, and the catalog says
+    // whether it has a high-flow option. The same check the web app makes.
+    const choice = await guarded(project.matchProfile({ nozzle: convert.nozzle, ...releaseOption }));
+    const { profiles } = await guarded(converter.listProfiles(releaseOption));
+    const highFlowSupported = profiles.find((profile) => profile.id === choice.profileId)?.highFlowSupported ?? false;
     const { output, report } = await guarded(project.convert({ ...convertOptions(convert, releases, highFlowSupported), onProgress: (stage) => onStep(stageText(stage)) }));
     // What the library made it for, which is what the result says.
     const nozzle = report.nozzle?.size ?? report.profile.nozzleDiameter;

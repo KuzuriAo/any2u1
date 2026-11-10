@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { DEFAULT_NOZZLE, NOZZLE_CHOICES } from "any2orca";
 import { describe, expect, it } from "vitest";
-import { convertOptions, DEFAULT_NOZZLE_SIZE, defaultSettings, describePrinter, isQuiet, NOZZLE_HELP, NOZZLE_SIZES, nozzleFor, parseSettings } from "../../src/core/settings";
+import { convertOptions, DEFAULT_NOZZLE_SIZE, defaultSettings, describePrinter, isQuiet, NOZZLE_HELP, NOZZLE_SIZES, parseSettings } from "../../src/core/settings";
 
 describe("parseSettings", () => {
   it("defaults to on, with the small window", () => {
@@ -82,12 +82,6 @@ describe("the nozzle size", () => {
     expect(NOZZLE_HELP).toBe(
       "The converted file is made for this nozzle size. The U1's stock nozzles are 0.4 mm, and Snapmaker Orca uses one size for all four toolheads. A project made for another size is converted anyway and you're told; 'Match the file' converts for the size the creator used.",
     );
-  });
-  it("is the size a file is made for, or with Match the file the creator's, and 0.4 where the file gives none", () => {
-    expect(nozzleFor("0.6", "0.4")).toBe("0.6");
-    expect(nozzleFor("0.4", null)).toBe("0.4");
-    expect(nozzleFor("match", "0.6")).toBe("0.6");
-    expect(nozzleFor("match", null)).toBe("0.4");
   });
 });
 

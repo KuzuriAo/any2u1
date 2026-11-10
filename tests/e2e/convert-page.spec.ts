@@ -494,6 +494,7 @@ test("a 0.4 mm project with 0.6 mm chosen is made for 0.6 mm nozzles, says so, a
   await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { convert?: { highFlowToolheads?: boolean[] } } | undefined)?.convert?.highFlowToolheads?.[0])).toBe(true);
   await page.setInputFiles("#file", fixturePath(SAMPLE));
   await expect(page.locator(".converted .saved")).toContainText(/using 0\.\d+mm [A-Za-z ]+, for 0\.6 mm nozzles and Snapmaker Orca \d/);
+  // The profile is matched for 0.6 mm before converting, so high-flow, which the 0.4 mm profiles have, isn't sent.
   await expect(page.locator(".converted .saved")).not.toContainText("high-flow");
   await expect(page.locator(".converted").getByText("converted for your 0.6 mm nozzles").first()).toBeVisible();
 
