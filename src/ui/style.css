@@ -33,6 +33,8 @@ h1 { font-size: 1.5rem; margin: 0 0 1.25rem; line-height: 1.25; }
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
 .page-head h1 { margin: 0; }
 h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+/* The convert page's section titles, in the accent the settings page gives its own; the size stays, so nothing grows. */
+.section-title { color: var(--accent); }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
 section { margin-bottom: 1.5rem; }
 /* Settings: each section opens with a rule and a heading in the accent, a step above the field labels in ink. */
