@@ -185,8 +185,10 @@ function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
       swatch(filament.color),
       el("span", { class: "slot" }, String(filament.slot)),
       el("span", { class: "type" }, filament.type),
-      el("span", { class: "fname" }, renamed ? filament.outputName : filament.outputName || "(no name)"),
-      renamed && filament.sourceName !== "" && el("span", { class: "was" }, `was ${filament.sourceName}`));
+      // The name and what it was share a column, so a "was" that doesn't fit beside the name wraps under it.
+      el("span", { class: "filament-name" },
+        el("span", { class: "fname" }, renamed ? filament.outputName : filament.outputName || "(no name)"),
+        renamed && filament.sourceName !== "" && el("span", { class: "was" }, `was ${filament.sourceName}`)));
   }));
 }
 

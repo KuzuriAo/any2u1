@@ -45,6 +45,9 @@ test("in the small window, an H3C project's first note is in sight without scrol
   try {
     await h3c.download(session, "/open/desk.3mf");
     const offer = await session.offerWindow();
+    // The test browser makes every window 1280 × 720, this one too. The extension opens it at 480 × 640 (`WINDOW_SIZE` in
+    // background.ts), so the page gets that, less a 28 px title bar.
+    await offer.setViewportSize({ width: 480, height: 640 - 28 });
     await offer.locator("button.primary").click();
     await expect(offer.locator(".converted strong")).toHaveText("desk_U1.3mf");
     const library = await convert(fixture(name), { profiles: bundledProfileSource() });
@@ -64,6 +67,17 @@ test("in the small window, an H3C project's first note is in sight without scrol
     await expect(offer.locator(".converted h3")).toHaveText(["Filament diameter", "Nozzle size", "Settings", "Filaments"]);
     expect(await offer.locator(".converted .notes ul").evaluateAll((lists) => lists.map((list) => list.children.length))).toEqual([2, 3, 2]);
     expect(await offer.locator(".converted .notes").evaluate((list) => list.compareDocumentPosition(list.parentElement!.querySelector(".filaments")!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    // Filament 3's "was" doesn't fit beside its name in the small window: it wraps under the name, not back under the
+    // color, so it reads as filament 3's. The color stays on the name's line.
+    const third = offer.locator(".converted .filaments li").nth(2);
+    await expect(third.locator(".was")).toHaveText("was Bambu TPU 75A(2.85mm) @BBL H3C");
+    const box = async (part: string) => (await third.locator(part).boundingBox())!;
+    const swatchBox = await box(".swatch");
+    const nameBox = await box(".fname");
+    const wasBox = await box(".was");
+    expect(wasBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+    expect(wasBox.x).toBeCloseTo(nameBox.x, 0);
+    expect(swatchBox.y + swatchBox.height).toBeLessThanOrEqual(nameBox.y + nameBox.height);
     expect(sha256(await session.savedFile("desk_U1.3mf"))).toBe(sha256(library.output));
   } finally {
     await h3c.close();
