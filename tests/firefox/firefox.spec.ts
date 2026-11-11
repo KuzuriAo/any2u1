@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What differs in Firefox: the background script runs as a page, there's no showOpenFilePicker, host access is asked
 // for from a click, and the converter's worker can fail its own way. The rest is the Chromium suite's.
-import { convert, filamentNotes } from "any2orca";
+import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
@@ -142,7 +142,8 @@ test("the Snapmaker option's notes are the library's sentences, and the file is 
   await page.until(`document.querySelector(".converted strong")?.textContent === ${JSON.stringify(output)}`);
   const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
   const notes = await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`);
-  expect(notes).toEqual([...library.report.warnings, ...filamentNotes(library.report)]);
+  expect(notes).toEqual(library.report.notes.map((note) => note.text));
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filament presets"]);
   expect(notes.join(" ")).toContain("Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C");
   expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
 });

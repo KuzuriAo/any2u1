@@ -7,7 +7,7 @@ The first release. any2u1 is a browser extension that turns a 3MF project from a
 ### Features
 
 - **An offer when a 3MF finishes downloading.** A small window asks whether to convert it. **Convert for Snapmaker U1** fetches the file again if the site's server allows it; if not, you choose between allowing access to that one host and picking the copy you saved. For a file the site built in the page, **Show where it was saved** opens the folder the browser put it in.
-- **The converted file** is saved next to your other downloads as `<name>_U1.3mf`, with the profile and nozzle size it's made for, any notes worth reading in the order the library gives them, and **Show in folder**. Turn on **Ask where to save each converted file** to name each file and choose its folder.
+- **The converted file** is saved next to your other downloads as `<name>_U1.3mf`, with the profile and nozzle size it's made for, any notes worth reading, grouped by topic with what needs doing first, and **Show in folder**. Turn on **Ask where to save each converted file** to name each file and choose its folder.
 - **While it converts,** the page shows the step it's on, a clock and a moving bar, and **Stop** ends a conversion that's taking too long. **Clear** empties the list of results; the files stay in your downloads.
 - **The convert page,** from the toolbar button, takes a 3MF, or a zip holding 3MF files, at any time.
 - **Options:**
@@ -22,4 +22,4 @@ The first release. any2u1 is a browser extension that turns a 3MF project from a
 
 ### Converted files
 
-- Converts with any2orca 0.12.1 and any2orca-profiles 0.4.0.
+- Converts with any2orca 0.13.0 and any2orca-profiles 0.4.0.

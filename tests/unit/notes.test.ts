@@ -1,42 +1,72 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { readFileSync } from "node:fs";
-import { convert, filamentNotes } from "any2orca";
+import { convert, filamentNotes, NOTE_TOPICS, type ConvertNote } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { describe, expect, it } from "vitest";
-import { notesFor } from "../../src/core/notes";
+import { noteGroups, OTHER_TITLE, TOPIC_TITLES } from "../../src/core/notes";
 import { FILAMENT_HELP } from "../../src/core/settings";
 
 const sample = readFileSync(new URL("../fixtures/bambu-studio-2.8.4.57-beta.3mf", import.meta.url));
 const h3cMixed = readFileSync(new URL("../fixtures/bambu-studio-2.9.1.70-h3c-mixed.3mf", import.meta.url));
-const reportFor = async (mode?: "snapmaker" | "generic") => (await convert(sample, { profiles: bundledProfileSource(), ...(mode ? { filamentComplianceMode: mode } : {}) })).report;
+const reportOf = async (file: Buffer, options: { nozzle?: "0.6"; filamentComplianceMode?: "snapmaker" } = {}) => (await convert(file, { profiles: bundledProfileSource(), ...options })).report;
+const note = (topic: string, text: string): ConvertNote => ({ topic, text });
+/** The same sentence in the older lists' style: a lower-case start and no final period are allowed there. */
+const plain = (text: string) => text.replace(/\.$/, "").replace(/^./, (first) => first.toLowerCase());
 
 describe("a result's notes", () => {
-  it("are the library's warnings, then its filament sentences, unchanged, when a preset was applied", async () => {
-    const report = await reportFor("snapmaker");
-    expect(report.filamentPresets?.length).toBeGreaterThan(0);
-    const sentences = filamentNotes(report);
-    expect(sentences.length).toBeGreaterThan(0);
-    expect(notesFor(report)).toEqual([...report.warnings, ...sentences]);
-    expect(sentences[0]).toMatch(/^Filaments 1 and 2 use Snapmaker PLA Matte @U1's own settings/);
-    expect(sentences).toContainEqual(expect.stringMatching(/^Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C/));
+  it("have a heading for every topic the library names, in its order", () => {
+    expect(Object.keys(TOPIC_TITLES)).toEqual([...NOTE_TOPICS]);
   });
-  it("say nothing about filaments for Original", async () => {
-    const report = await reportFor();
-    expect(filamentNotes(report)).toEqual([]);
-    expect(notesFor(report)).toEqual(report.warnings);
+  it("keep the order given, each run of one topic under one heading, and a topic that comes back gets its heading again", () => {
+    const groups = noteGroups([note("nozzle", "A."), note("nozzle", "B."), note("settings", "C."), note("nozzle", "D.")]);
+    expect(groups).toEqual([
+      { title: "Nozzle size", notes: ["A.", "B."] },
+      { title: "Settings", notes: ["C."] },
+      { title: "Nozzle size", notes: ["D."] },
+    ]);
   });
-  it("carry the library's sentence for a material no preset fits, Snapmaker Space's refusal included", () => {
-    const report = { warnings: ["A warning."], filamentPresets: [], filamentComplianceFallback: [], filamentComplianceUnchanged: ["PC"] };
-    expect(notesFor(report)).toEqual(["A warning.", "No Snapmaker or Generic preset fits PC at this nozzle size, so its name and settings stay as the creator had them. Snapmaker Space may refuse this file."]);
+  it("put a topic from a later library under one heading of their own, text unchanged", () => {
+    const groups = noteGroups([note("plates", "A."), note("print-time", "B."), note("constructor", "C."), note("__proto__", "D.")]);
+    expect(groups).toEqual([{ title: "Plates", notes: ["A."] }, { title: OTHER_TITLE, notes: ["B.", "C.", "D."] }]);
   });
-  it("keep the library's order, so what needs doing comes first, and say why the profile was chosen among them", async () => {
-    const { report } = await convert(h3cMixed, { profiles: bundledProfileSource() });
-    const notes = notesFor(report);
-    expect(notes).toEqual([...report.warnings, ...filamentNotes(report)]);
-    expect(notes[0]).toMatch(/^Filament 3 was Bambu TPU 75A\(2\.85mm\) @BBL H3C/);
-    // The result shows no list of its own for these: if the library stopped repeating them here, they'd be lost.
-    expect(report.profileNotes.length).toBeGreaterThan(0);
-    for (const note of report.profileNotes) expect(report.warnings).toContain(note);
+  it("are none for a file with nothing to say", async () => {
+    const report = await reportOf(sample);
+    expect(report.notes).toEqual([]);
+    expect(noteGroups(report.notes)).toEqual([]);
+  });
+  it("put the 2.85 mm filament first, then the nozzle sizes, then the settings, every note once", async () => {
+    const report = await reportOf(h3cMixed);
+    expect(report.notes[0]).toMatchObject({ topic: "filament-diameter", slots: [3] });
+    expect(report.notes[0]!.text).toMatch(/^Filament 3 was Bambu TPU 75A\(2\.85mm\) @BBL H3C/);
+    const groups = noteGroups(report.notes);
+    expect(groups.map((group) => group.title)).toEqual(["Filament diameter", "Nozzle size", "Settings"]);
+    expect(groups.flatMap((group) => group.notes)).toEqual(report.notes.map((n) => n.text));
+  });
+  it.each([
+    ["the H3C project", () => reportOf(h3cMixed)],
+    ["a 0.4 mm project made for 0.6 mm nozzles", () => reportOf(sample, { nozzle: "0.6" })],
+  ])("say why the profile was chosen once, under the nozzle size, before the filaments tuned for another size: %s", async (_, make) => {
+    const report = await make();
+    expect(report.profileNotes).toHaveLength(1);
+    const why = report.notes.filter((n) => plain(n.text) === plain(report.profileNotes[0]!));
+    expect(why).toHaveLength(1);
+    expect(why[0]!.topic).toBe("nozzle");
+    expect(why[0]!.slots).toBeUndefined();
+    const calibration = report.notes.findIndex((n) => n.topic === "nozzle" && / tuned for a [\d.]+ mm nozzle /.test(n.text));
+    expect(calibration).toBeGreaterThan(-1);
+    expect(report.notes.indexOf(why[0]!)).toBeLessThan(calibration);
+  });
+  it.each([
+    ["the H3C project", () => reportOf(h3cMixed)],
+    ["the H3C project with Snapmaker filaments", () => reportOf(h3cMixed, { filamentComplianceMode: "snapmaker" })],
+    ["a project with Snapmaker filaments", () => reportOf(sample, { filamentComplianceMode: "snapmaker" })],
+    ["a 0.4 mm project made for 0.6 mm nozzles", () => reportOf(sample, { nozzle: "0.6" })],
+  ])("hold every sentence of the library's older lists, once, so nothing is lost by showing only them: %s", async (_, make) => {
+    const report = await make();
+    const older = [...new Set([...report.warnings, ...report.profileNotes, ...filamentNotes(report)])];
+    expect(older.length).toBeGreaterThan(0);
+    for (const sentence of older) expect(report.notes.filter((n) => plain(n.text) === plain(sentence)), sentence).toHaveLength(1);
+    expect(report.notes).toHaveLength(older.length);
   });
 });
 

@@ -176,9 +176,6 @@ function swatch(color: string): HTMLSpanElement {
   return element;
 }
 
-/** The library's sentences can start in lower case; only the first letter changes. */
-const sentence = (note: string) => note.charAt(0).toUpperCase() + note.slice(1);
-
 /** Every filament as the file has it, in its order. Nothing here can change the list. */
 function filamentList(filaments: Converted["filaments"]): HTMLElement | null {
   if (filaments.length === 0) return null;
@@ -207,7 +204,12 @@ function showOutcome(outcome: Outcome, site: string | null = null, ask = false):
     el("p", { class: "saved" }, `${ask ? "Saved where you chose" : "Saved to your downloads"}, ${madeForText(outcome)}. `),
     // In the library's order, which puts first what needs doing, such as loading other filament, and above the filaments, so
     // the first is in sight: a file has at least four. Why the profile was chosen is among them.
-    outcome.notes.length > 0 && el("ul", { class: "notes" }, ...outcome.notes.map((note) => el("li", {}, sentence(note)))),
+    outcome.notes.length > 0 && el("div", { class: "notes" }, ...outcome.notes.flatMap((group) => [
+      el("h3", {}, group.title),
+      el("ul", {}, ...group.notes.map((note) => el("li", {}, note))),
+    ])),
+    // A heading of its own, so the filaments don't read as part of the last topic's notes.
+    outcome.filaments.length > 0 && el("h3", {}, "Filaments"),
     filamentList(outcome.filaments));
   results.append(item);
   save(outcome, item, ask);

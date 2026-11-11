@@ -7,7 +7,7 @@ import { createConverterWorker, type ConverterWorker } from "any2orca/worker";
 import type { ReportFilament } from "any2orca";
 import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
-import { notesFor } from "../core/notes";
+import { noteGroups, type NoteGroup } from "../core/notes";
 import { is3mfName, outputName } from "../core/names";
 import { stageText } from "../core/progress";
 import { activeRelease } from "../core/releases";
@@ -27,7 +27,8 @@ export type Converted = {
   printer: string[];
   /** A file that was set up for the U1 before it got here: said first, so nobody thinks nothing happened. */
   alreadyU1: boolean;
-  notes: string[];
+  /** Every note the library gives, once, in its order, under a heading for each topic. */
+  notes: NoteGroup[];
 };
 /** `code` is the library's error code, or this extension's own for a failure it found itself. `slicer` goes with `unsupported_slicer`. */
 export type Failed = { source: string; error: string; code?: string; slicer?: string; size?: number };
@@ -123,7 +124,7 @@ async function convertOne(source: string, bytes: Uint8Array, convert: ConvertSet
       orcaVersion: release,
       printer: describePrinter(convert, nozzle, highFlowSupported),
       alreadyU1: isU1File(inspection.printerModel, inspection.sourceVendor),
-      notes: notesFor(report),
+      notes: noteGroups(report.notes),
     };
   } finally {
     await guarded(project.close()).catch(() => {});

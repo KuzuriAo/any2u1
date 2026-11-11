@@ -44,7 +44,7 @@ npm run build
    - If the server refuses, it explains and gives you a choice: allow access to that one host, or choose the copy you saved.
    - If the site built the file in the page, it can't be fetched again, so you choose the copy you saved. **Show where it was saved** opens the folder the browser put it in.
 3. While it converts, the page shows the step it's on, a clock and a moving bar. **Stop** ends a conversion that's taking too long.
-4. It saves `<name>_U1.3mf` next to your other downloads and shows any notes worth reading. **Show in folder** takes you to it. If you'd rather name each file and choose its folder, turn on **Ask where to save each converted file** in the settings, and the browser's Save dialog opens instead.
+4. It saves `<name>_U1.3mf` next to your other downloads and shows any notes worth reading, grouped by topic. **Show in folder** takes you to it. If you'd rather name each file and choose its folder, turn on **Ask where to save each converted file** in the settings, and the browser's Save dialog opens instead.
 
 <img width="640" alt="The small window offering to convert two downloaded 3MF files" src="docs/assets/offer.png" /> <img width="640" alt="A converted file, with every filament listed in the file's order and the name each had before, and notes on which filaments now use a preset's settings" src="docs/assets/converted.png" />
 

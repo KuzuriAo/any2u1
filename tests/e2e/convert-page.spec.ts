@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { chmodSync } from "node:fs";
-import { convert, filamentNotes } from "any2orca";
+import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
@@ -314,8 +314,8 @@ test("the Snapmaker option says, in the library's words, which filaments now use
   const output = SAMPLE.replace(/\.3mf$/, "_U1.3mf");
   await expect(page.locator(".converted strong")).toHaveText(output);
   const snapmaker = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
-  expect(filamentNotes(snapmaker.report).length).toBeGreaterThan(0);
-  expect(await page.locator(".converted .notes li").allTextContents()).toEqual([...snapmaker.report.warnings, ...filamentNotes(snapmaker.report)]);
+  expect(await page.locator(".converted .notes li").allTextContents()).toEqual(snapmaker.report.notes.map((note) => note.text));
+  await expect(page.locator(".converted .notes h3")).toHaveText(["Filament presets"]);
   await expect(page.locator(".converted .notes")).toContainText("Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C");
   expect(sha256(await session.savedFile(output))).toBe(sha256(snapmaker.output));
 
@@ -326,8 +326,8 @@ test("the Snapmaker option says, in the library's words, which filaments now use
   await expect(page.locator(".converted strong")).toHaveText(output.replace(/\.3mf$/, " (1).3mf"));
   await expect(page.locator(".converted button.show")).toBeVisible();
   const original = await convert(fixture(SAMPLE), { profiles: bundledProfileSource() });
-  expect(filamentNotes(original.report)).toEqual([]);
-  expect(await page.locator(".converted .notes li").allTextContents()).toEqual(original.report.warnings);
+  expect(original.report.notes).toEqual([]);
+  await expect(page.locator(".converted .notes")).toHaveCount(0);
 });
 
 test("a PrusaSlicer scene keeps all four filaments in order with their colors, and shows the library's notes", async () => {
@@ -349,8 +349,9 @@ test("a PrusaSlicer scene keeps all four filaments in order with their colors, a
   const notes = page.locator(".converted .notes li");
   await expect(notes.filter({ hasText: "extruder colors" })).toHaveCount(1);
   await expect(notes.filter({ hasText: "become pauses" })).toHaveCount(1);
-  // In the library's order, each starting with a capital.
-  expect(await notes.allTextContents()).toEqual(library.report.warnings.map((note) => note.charAt(0).toUpperCase() + note.slice(1)));
+  // In the library's order, as it writes them, under the one topic they share.
+  expect(await notes.allTextContents()).toEqual(library.report.notes.map((note) => note.text));
+  await expect(page.locator(".converted .notes h3")).toHaveText(["From the file"]);
   await expect(page.locator(".converted")).not.toContainText(/limit|only four|at most four/i);
   expect(savedNames(session)).toEqual(["prusaslicer-2.9.6-scene_U1.3mf"]);
 });
@@ -423,7 +424,7 @@ test("with Match the file, a size with no U1 profile still gets the 0.4 mm one, 
   await chooseNozzle(page, "match");
   await page.setInputFiles("#file", { name: "half-mm.3mf", mimeType: "model/3mf", buffer: variant });
   expect(library.report.profileNotes.length).toBeGreaterThan(0);
-  await expect(page.locator(".converted .notes li").filter({ hasText: "0.5mm nozzle, which has no U1 profile" })).toHaveCount(1);
+  await expect(page.locator(".converted .notes li").filter({ hasText: "0.5 mm nozzle, which has no U1 profile" })).toHaveCount(1);
   expect(sha256(await session.savedFile("half-mm_U1.3mf"))).toBe(sha256(library.output));
 });
 

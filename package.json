@@ -18,7 +18,7 @@
     "test:firefox": "npm run build && playwright test -c playwright.firefox.config.ts"
   },
   "dependencies": {
-    "any2orca": "0.12.1",
+    "any2orca": "0.13.0",
     "any2orca-profiles": "0.4.0"
   },
   "devDependencies": {

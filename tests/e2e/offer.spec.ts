@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { convert, filamentNotes } from "any2orca";
+import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { defaultSettings } from "../../src/core/settings";
@@ -48,15 +48,21 @@ test("in the small window, an H3C project's first note is in sight without scrol
     await offer.locator("button.primary").click();
     await expect(offer.locator(".converted strong")).toHaveText("desk_U1.3mf");
     const library = await convert(fixture(name), { profiles: bundledProfileSource() });
-    expect(library.report.warnings[0]).toMatch(/^Filament 3 was Bambu TPU 75A\(2\.85mm\) @BBL H3C/);
+    expect(library.report.notes[0]).toMatchObject({ topic: "filament-diameter", slots: [3] });
+    expect(library.report.notes[0]!.text).toMatch(/^Filament 3 was Bambu TPU 75A\(2\.85mm\) @BBL H3C/);
     const first = offer.locator(".converted .notes li").first();
-    await expect(first).toHaveText(library.report.warnings[0]!);
+    await expect(first).toHaveText(library.report.notes[0]!.text);
+    await expect(offer.locator(".converted .notes h3").first()).toHaveText("Filament diameter");
+    await expect(offer.locator(".converted .notes h3").first()).toBeInViewport({ ratio: 1 });
     await expect(first).toBeInViewport({ ratio: 1 });
     expect(await offer.evaluate(() => window.scrollY)).toBe(0);
-    // Every note in the library's order, each starting with a capital, why the profile was chosen among them; the filaments below.
-    const expected = [...library.report.warnings, ...filamentNotes(library.report)].map((note) => note.charAt(0).toUpperCase() + note.slice(1));
-    expect(await offer.locator(".converted .notes li").allTextContents()).toEqual(expected);
-    expect(library.report.profileNotes.length).toBeGreaterThan(0);
+    // Every note in the library's order, as it writes them, each topic under its heading, why the profile was chosen
+    // among them; the filaments below.
+    expect(await offer.locator(".converted .notes li").allTextContents()).toEqual(library.report.notes.map((note) => note.text));
+    await expect(offer.locator(".converted .notes h3")).toHaveText(["Filament diameter", "Nozzle size", "Settings"]);
+    // The filaments have a heading of their own, so they don't read as the last topic's.
+    await expect(offer.locator(".converted h3")).toHaveText(["Filament diameter", "Nozzle size", "Settings", "Filaments"]);
+    expect(await offer.locator(".converted .notes ul").evaluateAll((lists) => lists.map((list) => list.children.length))).toEqual([2, 3, 2]);
     expect(await offer.locator(".converted .notes").evaluate((list) => list.compareDocumentPosition(list.parentElement!.querySelector(".filaments")!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     expect(sha256(await session.savedFile("desk_U1.3mf"))).toBe(sha256(library.output));
   } finally {
