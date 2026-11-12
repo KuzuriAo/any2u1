@@ -5,8 +5,9 @@ import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
+import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { libraryVersion } from "./helpers";
-import { expectOnlyThese, fixture, fixturePath, launch, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
+import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -303,6 +304,27 @@ test("every filament is listed as the file has it, in order, with what each is n
   }
   // The scene's four filaments, renamed but kept in order: nothing dropped or merged.
   expect(library.report.filaments.map((filament) => filament.slot)).toEqual([1, 2, 3, 4]);
+});
+
+test("the filament rows hold together at every desktop size and font, with a type and names far too long for a row", async () => {
+  const project = longNamesProject();
+  const library = await convert(project, { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+  expect(library.report.filaments[0]).toMatchObject({ type: "T".repeat(300), outputName: "N".repeat(400) });
+  expect(library.report.filaments[1]).toMatchObject({ outputName: "Snapmaker PLA SnapSpeed @U1", sourceName: "W".repeat(400) });
+  const page = await session.open("convert.html?view=window");
+  await page.locator("summary").click();
+  await page.selectOption("#filament-names", "snapmaker");
+  await page.setInputFiles("#file", { name: "long.3mf", mimeType: "model/3mf", buffer: project });
+  await expect(page.locator(".converted strong")).toHaveText("long_U1.3mf");
+  await expect(page.locator(".converted .filaments li .was")).toHaveCount(3);
+  for (const layout of LAYOUTS) {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    await page.evaluate((size) => (document.documentElement.style.fontSize = size), layout.rootFont);
+    const rows = await page.evaluate<FilamentRows>(FILAMENT_ROWS);
+    expect(rows.problems, layout.name).toEqual([]);
+    // Filament 2's "was" can never fit beside its name, so the check above has a wrapped one to look at, at every size.
+    expect(rows.wrapped, layout.name).toContain(2);
+  }
 });
 
 test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {

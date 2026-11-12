@@ -109,6 +109,8 @@ export type Session = {
   /** The URLs of every open tab and window. */
   urls(): Promise<string[]>;
   offerWindow(): Promise<Tab>;
+  /** The frame in `parent` whose address contains `url`, once it has loaded. */
+  frame(parent: Tab, url: string): Promise<Tab>;
   savedFile(name: string): Promise<Buffer>;
   /** Clicks a link on the site to that path, as a visitor would, and waits until the site has been asked for it. */
   download(site: SiteServer, path: string): Promise<void>;
@@ -294,6 +296,15 @@ export async function launch(site: SiteServer, extension: string = extensionPath
       const window = tab(found!);
       await window.until(`document.readyState === "complete"`);
       return window;
+    },
+    frame: async (parent, url) => {
+      type Tree = { contexts: Array<{ children?: Array<{ context: string; url: string }> }> };
+      let found: string | undefined;
+      const children = async () => (await send<Tree>("browsingContext.getTree", { root: parent.context })).contexts[0]?.children ?? [];
+      await expect.poll(async () => (found = (await children()).find((child) => child.url.includes(url))?.context), { message: `the frame at ${url}`, timeout: 15_000 }).toBeTruthy();
+      const frame = tab(found!);
+      await frame.until(`document.readyState === "complete"`);
+      return frame;
     },
     savedFile: async (name) => {
       // Firefox writes to "<name>.part" and renames it when the download is done.

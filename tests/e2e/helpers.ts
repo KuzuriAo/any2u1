@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, expect, type BrowserContext, type Page, type Worker } from "@playwright/test";
+import { SMALL_WINDOW } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 
-export { fixture, fixturePath, libraryVersion, PRUSA_FIXTURES, SAMPLE, sha256, superSlicerProject } from "../shared/fixtures";
+export { fixture, fixturePath, libraryVersion, longNamesProject, PRUSA_FIXTURES, SAMPLE, sha256, superSlicerProject } from "../shared/fixtures";
 
 export const extensionPath = fileURLToPath(new URL("../../dist/chrome", import.meta.url));
 
@@ -61,6 +62,8 @@ export async function launch(extension: string = extensionPath): Promise<Session
     offerWindow: async () => {
       const existing = context.pages().find((page) => page.url().includes("view=window"));
       const page = existing ?? (await context.waitForEvent("page", { predicate: (p) => p.url().includes("view=window"), timeout: 15_000 }));
+      // The test browser makes every window 1280 × 720, this one too, so it gets the size the extension opens it at.
+      await page.setViewportSize(SMALL_WINDOW);
       // The file dialog goes through the plain input, which a test can answer.
       await page.evaluate(() => {
         (window as unknown as { showOpenFilePicker?: unknown }).showOpenFilePicker = undefined;

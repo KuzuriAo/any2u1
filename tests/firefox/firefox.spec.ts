@@ -5,7 +5,8 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
-import { fixture, SAMPLE, sha256 } from "../shared/fixtures";
+import { fixture, longNamesProject, SAMPLE, sha256 } from "../shared/fixtures";
+import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 import { launch, type Session } from "./firefox";
 
@@ -146,6 +147,30 @@ test("the Snapmaker option's notes are the library's sentences, and the file is 
   expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filament presets"]);
   expect(notes.join(" ")).toContain("Filaments 3 and 4 use Snapmaker PLA SnapSpeed @U1's own settings instead of the creator's: nozzle temperature 225 °C → 220 °C");
   expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
+});
+
+test("the filament rows hold together at every desktop size and font, with a type and names far too long for a row", async () => {
+  // Firefox 159 won't size an extension page's viewport ("browsingContext.setViewport": not in privileged scope), so the
+  // page is in a frame of each size, which is a viewport of that size, fixed in the corner so it's on screen.
+  const host = await firefox.open("settings.html");
+  const frameAt = (layout: { width: number; height: number }) => `(() => { const frame = document.querySelector("#sized") ?? document.body.appendChild(Object.assign(document.createElement("iframe"), { id: "sized", src: "convert.html?view=window" })); frame.style.cssText = "position: fixed; inset: 0 auto auto 0; z-index: 1; border: 0; width: ${layout.width}px; height: ${layout.height}px"; return true; })()`;
+  await host.evaluate(frameAt(LAYOUTS[0]));
+  const page = await firefox.frame(host, "convert.html?view=window");
+  await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+  await page.evaluate(`(() => { const select = document.querySelector("#filament-names"); select.value = "snapmaker"; select.dispatchEvent(new Event("change")); return true; })()`);
+  await page.until(`browser.storage.local.get("settings").then(({ settings }) => settings?.convert?.filamentNames === "snapmaker")`);
+  await page.setFiles("#file", [{ name: "long.3mf", bytes: longNamesProject() }], "#choose");
+  await page.until(`document.querySelector(".converted strong")?.textContent === "long_U1.3mf"`);
+  expect(await page.evaluate<number>(`document.querySelectorAll(".converted .filaments li .was").length`)).toBe(3);
+  for (const layout of LAYOUTS) {
+    await host.evaluate(frameAt(layout));
+    await page.evaluate(`(document.documentElement.style.fontSize = ${JSON.stringify(layout.rootFont)})`);
+    await page.until(`window.innerWidth === ${layout.width} && window.innerHeight === ${layout.height}`, 5_000);
+    const rows = await page.evaluate<FilamentRows>(FILAMENT_ROWS);
+    expect(rows.problems, layout.name).toEqual([]);
+    // Filament 2's "was" can never fit beside its name, so the check above has a wrapped one to look at, at every size.
+    expect(rows.wrapped, layout.name).toContain(2);
+  }
 });
 
 test("the nozzle size chosen reaches the library: a 0.4 mm project made for 0.6 mm nozzles, the library's file", async () => {

@@ -99,7 +99,8 @@ button.disclosure[aria-expanded="true"]::before { content: "\25BE" / ""; }
 /* Centered on the first line of text (1.5em high), not on the whole row. */
 .swatch { width: 0.95rem; height: 0.95rem; border-radius: 3px; border: 1px solid var(--line); flex: none; align-self: flex-start; margin-top: calc((1.5em - 0.95rem) / 2); }
 .slot { color: var(--muted); min-width: 1.2rem; }
-.type { font-weight: 600; }
+/* A type comes from the file, so it can be any length: it breaks rather than push past the card. */
+.type { font-weight: 600; overflow-wrap: anywhere; }
 .fname { overflow-wrap: anywhere; }
 .was { color: var(--muted); overflow-wrap: anywhere; }
 .notes { margin: 0.5rem 0 0; font-size: 0.87rem; }
