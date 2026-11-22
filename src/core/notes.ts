@@ -5,6 +5,7 @@ import type { ConvertNote, KnownNoteTopic } from "any2orca";
 /** A heading for each topic the library names; a test checks this covers the library's `NOTE_TOPICS`. */
 export const TOPIC_TITLES: Readonly<Record<KnownNoteTopic, string>> = {
   "filament-diameter": "Filament diameter",
+  "plate-filaments": "Filaments per plate",
   nozzle: "Nozzle size",
   profile: "Profile",
   "filament-presets": "Filament presets",

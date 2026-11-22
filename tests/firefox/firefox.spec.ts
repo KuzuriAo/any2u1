@@ -5,7 +5,7 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
-import { fixture, longNamesProject, SAMPLE, sha256 } from "../shared/fixtures";
+import { fixture, longNamesProject, plateNotesProject, SAMPLE, sha256 } from "../shared/fixtures";
 import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 import { launch, type Session } from "./firefox";
@@ -170,6 +170,28 @@ test("the filament rows hold together at every desktop size and font, with a typ
     expect(rows.problems, layout.name).toEqual([]);
     // Filament 2's "was" can never fit beside its name, so the check above has a wrapped one to look at, at every size.
     expect(rows.wrapped, layout.name).toContain(2);
+  }
+});
+
+test("a project with more filaments than toolheads says first what its plates need, and the long notes fit at every desktop size and font", async () => {
+  const project = plateNotesProject();
+  const library = await convert(project, { profiles: bundledProfileSource() });
+  // In a frame of each size, as above.
+  const host = await firefox.open("settings.html");
+  const frameAt = (layout: { width: number; height: number }) => `(() => { const frame = document.querySelector("#sized") ?? document.body.appendChild(Object.assign(document.createElement("iframe"), { id: "sized", src: "convert.html?view=window" })); frame.style.cssText = "position: fixed; inset: 0 auto auto 0; z-index: 1; border: 0; width: ${layout.width}px; height: ${layout.height}px"; return true; })()`;
+  await host.evaluate(frameAt(LAYOUTS[0]));
+  const page = await firefox.frame(host, "convert.html?view=window");
+  await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+  await page.setFiles("#file", [{ name: "plates.3mf", bytes: project }], "#choose");
+  await page.until(`document.querySelector(".converted strong")?.textContent === "plates_U1.3mf"`);
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`)).toEqual(library.report.notes.map((note) => note.text));
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filaments per plate", "Plates"]);
+  expect(await page.evaluate<number>(`document.querySelectorAll(".converted .filaments li").length`)).toBe(17);
+  for (const layout of LAYOUTS) {
+    await host.evaluate(frameAt(layout));
+    await page.evaluate(`(document.documentElement.style.fontSize = ${JSON.stringify(layout.rootFont)})`);
+    await page.until(`window.innerWidth === ${layout.width} && window.innerHeight === ${layout.height}`, 5_000);
+    expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, layout.name).toEqual([]);
   }
 });
 

@@ -5,6 +5,7 @@ import { bundledProfileSource } from "any2orca/node";
 import { describe, expect, it } from "vitest";
 import { noteGroups, OTHER_TITLE, TOPIC_TITLES } from "../../src/core/notes";
 import { FILAMENT_HELP } from "../../src/core/settings";
+import { plateNotesProject } from "../shared/fixtures";
 
 const sample = readFileSync(new URL("../fixtures/bambu-studio-2.8.4.57-beta.3mf", import.meta.url));
 const h3cMixed = readFileSync(new URL("../fixtures/bambu-studio-2.9.1.70-h3c-mixed.3mf", import.meta.url));
@@ -41,6 +42,22 @@ describe("a result's notes", () => {
     const groups = noteGroups(report.notes);
     expect(groups.map((group) => group.title)).toEqual(["Filament diameter", "Nozzle size", "Settings"]);
     expect(groups.flatMap((group) => group.notes)).toEqual(report.notes.map((n) => n.text));
+  });
+  it("put what a plate's filaments mean for printing it under a heading of its own, ahead of the plain line for a plate", async () => {
+    const report = await reportOf(plateNotesProject());
+    expect(report.notes.map((n) => n.topic)).toEqual(["plate-filaments", "plate-filaments", "plates"]);
+    // Filament 17 with filament 1 on plate 1, then plate 2's five filaments, two at a time.
+    expect(report.notes[0]!.slots).toEqual([1, 17]);
+    expect(report.notes[1]!.slots).toEqual([1, 2, 3, 4, 5]);
+    expect(noteGroups(report.notes)).toEqual([
+      { title: "Filaments per plate", notes: [report.notes[0]!.text, report.notes[1]!.text] },
+      { title: "Plates", notes: [report.notes[2]!.text] },
+    ]);
+  });
+  it("keep a filament the U1 can't take as it is ahead of the plates' filaments", async () => {
+    const report = await reportOf(plateNotesProject("bambu-studio-2.9.1.70-h3c-mixed.3mf", "Cylinder"));
+    expect(report.notes[0]).toMatchObject({ topic: "filament-diameter", slots: [3] });
+    expect(noteGroups(report.notes).map((group) => group.title).slice(0, 3)).toEqual(["Filament diameter", "Filaments per plate", "Nozzle size"]);
   });
   it.each([
     ["the H3C project", () => reportOf(h3cMixed)],

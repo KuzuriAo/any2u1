@@ -43,3 +43,30 @@ export function longNamesProject(): Buffer {
   entries["Metadata/project_settings.config"] = strToU8(JSON.stringify(settings));
   return Buffer.from(zipSync(entries));
 }
+
+/**
+ * A project with more filaments than the U1 has toolheads, made from one of the scene fixtures: seventeen filaments
+ * (copies of the first), one object on filament 17 on a plate that also prints filament 1, and filament changes at
+ * four heights on plate 2. The library's notes about plates' filaments follow: the long one about filament 17, the one
+ * about filament changes at pauses, and a plain line for plate 1.
+ */
+export function plateNotesProject(base = SAMPLE, object = "Disc"): Buffer {
+  const count = 17;
+  const entries = unzipSync(fixture(base));
+  const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown> & { filament_colour: string[] };
+  const before = settings.filament_colour.length;
+  for (const [key, value] of Object.entries(settings)) {
+    if (!Array.isArray(value)) continue;
+    if (key === "flush_volumes_matrix" && value.length === before * before) settings[key] = Array.from({ length: count * count }, (_, i) => (Math.floor(i / count) === i % count ? "0" : "300"));
+    else if (value.length === before) settings[key] = [...value, ...Array.from({ length: count - before }, () => value[0] as unknown)];
+    else if (value.length === 2 * before) settings[key] = [...value, ...Array.from({ length: count - before }, () => [value[0], value[1]] as unknown[]).flat()];
+  }
+  entries["Metadata/project_settings.config"] = strToU8(JSON.stringify(settings));
+  const objects = strFromU8(entries["Metadata/model_settings.config"]!);
+  const moved = objects.replace(new RegExp(`(<metadata key="name" value="${object}"/>\\s*<metadata key="extruder" value=")\\d+(")`), `$1${count}$2`);
+  if (moved === objects) throw new Error(`${base} has no object named ${object}`);
+  entries["Metadata/model_settings.config"] = strToU8(moved);
+  const changes = [[5, 1], [10, 2], [15, 3], [20, 5]].map(([height, filament]) => `<layer top_z="${height}" type="2" extruder="${filament}" color="#112233" extra="" gcode="tool_change"/>`).join("\n");
+  entries["Metadata/custom_gcode_per_layer.xml"] = strToU8(`<?xml version="1.0" encoding="utf-8"?>\n<custom_gcodes_per_layer>\n<plate>\n<plate_info id="2"/>\n${changes}\n<mode value="MultiAsSingle"/>\n</plate>\n</custom_gcodes_per_layer>\n`);
+  return Buffer.from(zipSync(entries));
+}

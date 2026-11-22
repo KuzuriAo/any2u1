@@ -7,7 +7,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
 import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { libraryVersion } from "./helpers";
-import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
+import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, plateNotesProject, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -325,6 +325,30 @@ test("the filament rows hold together at every desktop size and font, with a typ
     // Filament 2's "was" can never fit beside its name, so the check above has a wrapped one to look at, at every size.
     expect(rows.wrapped, layout.name).toContain(2);
   }
+});
+
+test("a project with more filaments than toolheads says first what its plates need, under a heading of its own, and the long notes fit at every desktop size and font", async () => {
+  const project = plateNotesProject();
+  const library = await convert(project, { profiles: bundledProfileSource() });
+  expect(library.report.notes.map((note) => note.topic)).toEqual(["plate-filaments", "plate-filaments", "plates"]);
+  const page = await session.open("convert.html?view=window");
+  await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+  await page.setInputFiles("#file", { name: "plates.3mf", mimeType: "model/3mf", buffer: project });
+  await expect(page.locator(".converted strong")).toHaveText("plates_U1.3mf");
+  expect(await page.locator(".converted .notes li").allTextContents()).toEqual(library.report.notes.map((note) => note.text));
+  await expect(page.locator(".converted .notes h3")).toHaveText(["Filaments per plate", "Plates"]);
+  expect(await page.locator(".converted .notes ul").evaluateAll((lists) => lists.map((list) => list.children.length))).toEqual([2, 1]);
+  // What to check before printing is in sight in the small window, with seventeen filaments listed below it.
+  await expect(page.locator(".converted .notes li").first()).toBeInViewport({ ratio: 1 });
+  await expect(page.locator(".converted .filaments li")).toHaveCount(17);
+  for (const layout of LAYOUTS) {
+    await page.setViewportSize({ width: layout.width, height: layout.height });
+    await page.evaluate((size) => (document.documentElement.style.fontSize = size), layout.rootFont);
+    expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, layout.name).toEqual([]);
+  }
+  // The check does see the notes: one that couldn't wrap widens its card, and the page with it.
+  await page.addStyleTag({ content: ".notes li { white-space: nowrap; }" });
+  expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems.join(" ")).toContain("the page scrolls sideways");
 });
 
 test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {
