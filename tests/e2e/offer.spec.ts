@@ -370,6 +370,8 @@ test("the settings page has a Close button that closes its tab", async () => {
 
 test("the settings page tells people to pin the button when they choose the badge", async () => {
   const page = await session.open("settings.html");
+  // The page shows the stored settings a moment after it loads; a click before that could be drawn over.
+  await expect(page.locator("#orca-version")).toBeVisible();
   await expect(page.locator("#pin-tip")).toBeHidden();
   await page.check("#style-badge");
   await expect(page.locator("#pin-tip")).toBeVisible();

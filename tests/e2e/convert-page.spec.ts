@@ -670,6 +670,8 @@ test("a canceled Save dialog says the file wasn't saved, calmly", async () => {
 
 test("the settings page switches Ask where to save on and off", async () => {
   const page = await session.open("settings.html");
+  // The page shows the stored settings a moment after it loads; a click before that could be drawn over.
+  await expect(page.locator("#orca-version")).toBeVisible();
   const box = page.locator("#ask-where");
   await expect(box).not.toBeChecked();
   await box.check();
