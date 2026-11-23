@@ -23,8 +23,8 @@ export type FilamentRows = { problems: string[]; wrapped: number[] };
 
 /**
  * What is wrong with a document's filament rows, and which rows' "was" wrapped. Nothing may reach outside its card or
- * make the page scroll sideways; a "was" that wraps starts under its name, and one that doesn't comes after it; each
- * color sits on its name's first line. Reading a box makes the browser apply a size or font just set, so there's no
+ * make the page scroll sideways; a type as short as a material's name (12 characters or fewer) stays on one line; a "was"
+ * that wraps starts under its name, and one that doesn't comes after it; each color sits on its name's first line. Reading a box makes the browser apply a size or font just set, so there's no
  * waiting.
  */
 const CHECK = `(document) => {
@@ -39,6 +39,11 @@ const CHECK = `(document) => {
       const box = part.getBoundingClientRect();
       if (box.left < card.left - 0.5 || box.right > card.right + 0.5) problems.push("filament " + slot + ": its " + part.className + " reaches outside the card");
     }
+    const type = row.querySelector(".type");
+    const typeText = document.createRange();
+    typeText.selectNodeContents(type);
+    const typeLines = new Set([...typeText.getClientRects()].map((line) => Math.round(line.top))).size;
+    if (typeLines > 1 && type.textContent.length <= 12) problems.push("filament " + slot + ": its type, " + type.textContent + ", is broken over " + typeLines + " lines");
     const name = row.querySelector(".fname");
     const range = document.createRange();
     range.selectNodeContents(name);
