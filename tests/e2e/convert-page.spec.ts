@@ -743,6 +743,11 @@ test("a canceled Save dialog says the file wasn't saved, calmly", async () => {
   await expect(page.locator(".converted")).toHaveClass(/unsaved/);
 });
 
+test("the settings page says whose project this is: nobody's whose products it reads", async () => {
+  const page = await session.open("settings.html");
+  await expect(page.locator("footer #independent")).toHaveText("any2u1 is an independent project, not made by or affiliated with Snapmaker or the makers of the slicers it reads.");
+});
+
 test("the settings page switches Ask where to save on and off", async () => {
   const page = await session.open("settings.html");
   const box = page.locator("#ask-where");

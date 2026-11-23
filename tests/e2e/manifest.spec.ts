@@ -41,10 +41,13 @@ for (const target of ["chrome", "firefox"]) {
       expect(description.endsWith(".")).toBe(true);
     });
 
-    test("the listing summary names the seven slicers and leads with any site", () => {
+    test("the listing summary leads with any site and names at most five slicer makers, the rest as others", () => {
       const description = manifestOf(target).description as string;
       expect(description).toMatch(/^Turn a 3MF from any site/);
-      for (const slicer of ["Bambu", "Creality", "Anycubic", "Elegoo", "Flash Studio", "Prusa", "QIDI"]) expect(description).toContain(slicer);
+      // The Chrome Web Store's spam rules: "do not list more than five" brands in the description.
+      const named = ["Bambu", "Creality", "Anycubic", "Elegoo", "Flash Studio", "Prusa", "QIDI"].filter((slicer) => description.includes(slicer));
+      expect(named).toEqual(["Bambu", "Creality", "Anycubic", "Elegoo", "Prusa"]);
+      expect(description).toMatch(/ and others\.$/);
     });
 
     test("the background script makes no request", () => {

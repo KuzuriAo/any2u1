@@ -250,6 +250,7 @@ test("the settings switches take clicks once they show what is stored, and keep 
   // Once the rest of the page has loaded, the switches are as clicked.
   await page.until(`document.querySelector("#orca-version") !== null`);
   expect(await page.evaluate<boolean[]>(`["#enabled", "#style-window", "#style-badge", "#ask-where"].map((id) => document.querySelector(id).checked)`)).toEqual([true, false, true, true]);
+  expect(await page.evaluate<string>(`document.querySelector("footer #independent").textContent`)).toBe("any2u1 is an independent project, not made by or affiliated with Snapmaker or the makers of the slicers it reads.");
 });
 
 test("the nozzle size chosen reaches the library: a 0.4 mm project made for 0.6 mm nozzles, the library's file", async () => {

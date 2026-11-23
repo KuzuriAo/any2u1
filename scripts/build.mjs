@@ -65,7 +65,9 @@ const base = {
   // The stores' listing title: the brand, then what it does, for store search (45 characters at most, Edge's and Firefox's limit).
   name: "any2u1: 3MF to Snapmaker U1",
   version,
-  description: "Turn a 3MF from any site into a Snapmaker U1 file, on your device. Bambu, Creality, Anycubic, Elegoo, Flash Studio, Prusa, QIDI.",
+  // One store's spam rules allow at most five brands in a listing's text, so the rest are "others"; the full list is on the
+  // convert page, the site and the screenshots.
+  description: "Turn a 3MF from any site into a Snapmaker U1 file, on your device. Bambu, Creality, Anycubic, Elegoo, Prusa and others.",
   permissions: ["downloads", "storage"],
   optional_host_permissions: ["https://*/*"],
   action: {
