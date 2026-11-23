@@ -164,7 +164,7 @@ npm ci
 npm run package
 ```
 
-This builds, then writes three files to `dist`: `any2u1-<version>-chrome.zip` (for Chrome, Edge and Brave), `any2u1-<version>-firefox.zip`, and `any2u1-<version>-source.zip`, the committed source these are built from.
+This builds, then writes four files to `dist`: `any2u1-<version>-chrome.zip` (for Chrome, Edge and Brave), `any2u1-<version>-firefox.zip`, `any2u1-<version>-source.zip`, the committed source these are built from, and `SHA256SUMS`, the SHA-256 of each zip. In a folder that isn't a git checkout, such as an unpacked source zip, there is no committed source to zip, so it writes the two extension zips and their sums.
 
 The build is reproducible. These two setups give byte-identical files: macOS on Apple silicon with Node.js 26.3.0 and npm 11.16.0, and Ubuntu 24.04 on ARM64 with Node.js 24.14.0 and npm 11.9.0, built as an ordinary user. To check a release, unpack its source zip, run the two commands above, and compare `dist/firefox` (or `dist/chrome`) with the unpacked extension. The build makes no requests beyond what `npm ci` downloads from the npm registry.
 
