@@ -222,6 +222,21 @@ test("a Polymaker project with the Snapmaker option: the library's file and note
   }
 });
 
+test("the settings switches take clicks once they show what is stored, and keep them", async () => {
+  const page = await firefox.open("settings.html");
+  // They start disabled in the page, and are enabled when the stored settings are drawn.
+  await page.until(`["#enabled", "#style-window", "#style-badge", "#ask-where"].every((id) => !document.querySelector(id).disabled)`);
+  expect(await page.evaluate<boolean[]>(`["#enabled", "#style-window", "#style-badge", "#ask-where"].map((id) => document.querySelector(id).checked)`)).toEqual([true, true, false, false]);
+  await page.evaluate(`(document.querySelector("#ask-where").click(), true)`);
+  await page.until(`browser.storage.local.get("settings").then(({ settings }) => settings?.askWhereToSave === true)`);
+  await page.evaluate(`(document.querySelector("#style-badge").click(), true)`);
+  await page.until(`browser.storage.local.get("settings").then(({ settings }) => settings?.offerStyle === "badge")`);
+  await page.until(`!document.querySelector("#pin-tip").hidden`);
+  // Once the rest of the page has loaded, the switches are as clicked.
+  await page.until(`document.querySelector("#orca-version") !== null`);
+  expect(await page.evaluate<boolean[]>(`["#enabled", "#style-window", "#style-badge", "#ask-where"].map((id) => document.querySelector(id).checked)`)).toEqual([true, false, true, true]);
+});
+
 test("the nozzle size chosen reaches the library: a 0.4 mm project made for 0.6 mm nozzles, the library's file", async () => {
   const page = await firefox.open("convert.html");
   await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
