@@ -10,6 +10,7 @@ The first release. any2u1 is a browser extension that turns a 3MF project from a
 - **The converted file** is saved next to your other downloads as `<name>_U1.3mf`, with the profile and nozzle size it's made for, any notes worth reading, grouped by topic with what needs doing first, and **Show in folder**. Turn on **Ask where to save each converted file** to name each file and choose its folder.
 - **While it converts,** the page shows the step it's on, a clock and a moving bar, and **Stop** ends a conversion that's taking too long. **Clear** empties the list of results; the files stay in your downloads.
 - **The convert page,** from the toolbar button, takes a 3MF, or a zip holding 3MF files, at any time.
+- **A first-run tab** after install says what happens on the next 3MF download and how to pin the button, in the words of the browser's own extensions menu, and whether it's pinned already.
 - **Options:**
   - **Snapmaker Orca version:** the version the file is made for. The newest is the default, a notice says when an update adds one, and every version from 2.4.0 on stays in the picker.
   - **Your U1's nozzle size:** the size the file is made for, 0.4 mm unless you change it, or **Match the file** for the creator's size. A project made for another size is converted anyway, with a note. A filament tuned for another nozzle size takes the calibration of Snapmaker's U1 preset for its material, and a filament of another diameter takes a preset Snapmaker Orca ships, where one fits; the result says so first.

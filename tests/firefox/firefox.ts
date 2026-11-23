@@ -115,6 +115,8 @@ export type Session = {
   /** Clicks a link on the site to that path, as a visitor would, and waits until the site has been asked for it. */
   download(site: SiteServer, path: string): Promise<void>;
   close(): Promise<void>;
+  /** The tab the install opened (`convert.html?view=welcome`), when launched with `keepWelcome`; otherwise closed at launch. */
+  welcome?: Tab;
 };
 
 type Remote = { type: string; value?: unknown };
@@ -158,7 +160,8 @@ async function startProxy(sitePort: number): Promise<{ close(): Promise<void>; p
   };
 }
 
-export async function launch(site: SiteServer, extension: string = extensionPath): Promise<Session> {
+/** Installing the extension opens its first-run tab; launch waits for it and closes it, unless `keepWelcome` is set. */
+export async function launch(site: SiteServer, extension: string = extensionPath, { keepWelcome = false }: { keepWelcome?: boolean } = {}): Promise<Session> {
   const binary = firefoxBinary();
   const profile = mkdtempSync(join(tmpdir(), "firefox-profile-"));
   const downloads = mkdtempSync(join(tmpdir(), "firefox-downloads-"));
@@ -283,8 +286,14 @@ export async function launch(site: SiteServer, extension: string = extensionPath
     await created.navigate(url);
     return created;
   };
+  let welcomeContext: string | undefined;
+  await expect.poll(async () => (welcomeContext = (await tree()).find((context) => context.url.includes("view=welcome"))?.context), { message: "the first-run tab", timeout: 15_000 }).toBeTruthy();
+  const welcome = tab(welcomeContext!);
+  if (keepWelcome) await welcome.until(`document.readyState === "complete"`);
+  else await send("browsingContext.close", { context: welcomeContext! });
 
   return {
+    ...(keepWelcome ? { welcome } : {}),
     downloads,
     proxied: proxy.log,
     open: (path) => newTab(`${ORIGIN}/${path}`),

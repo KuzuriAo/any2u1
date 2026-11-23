@@ -38,6 +38,8 @@ npm run build
 
 ## How it works
 
+Right after you install it, a tab opens that says what happens on your next 3MF download and how to pin the any2u1 button to your toolbar. It says whether the button is pinned already; no browser lets an extension pin itself.
+
 1. A 3MF finishes downloading, and a small window asks whether to convert it. Prefer something quieter? In the settings you can switch to a number on the toolbar button, turn offers off, or turn them off for one site.
 2. Click **Convert for Snapmaker U1**. The extension gets the file in one of these ways:
    - If the server allows it, it fetches the file again, with no cookies. No prompt appears.

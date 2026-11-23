@@ -18,6 +18,7 @@ import { failureReport } from "../core/report";
 import { environment, reportBlock } from "./report";
 import { showReleaseNotice } from "./releaseNotice";
 import { loadSettings, onSettingsChanged, updateSettings } from "./settingsStore";
+import { showWelcome } from "./welcome";
 
 const pendingList = need<HTMLUListElement>("#pending");
 const pendingSection = need<HTMLElement>("#downloads");
@@ -32,6 +33,7 @@ const activity = need<HTMLElement>("#activity");
 const options = need<HTMLElement>("#options");
 
 if (new URLSearchParams(location.search).get("view") === "window") document.body.classList.add("small");
+showWelcome();
 
 /** What each waiting download is doing. A row's buttons depend on it, and it outlives a redraw. */
 type RowState =

@@ -30,6 +30,21 @@ const onlyTheSite = () => {
 const pendingCount = (session: Session, tab: Awaited<ReturnType<Session["open"]>>) =>
   tab.evaluate<number>(`browser.storage.session.get(null).then((all) => Object.keys(all).filter((key) => key.startsWith("pending:")).length)`);
 
+test("installing opens one tab that says what happens on the next 3MF download, with the steps for this browser's own menu and whether the button is pinned", async () => {
+  // A launch of its own, which keeps the tab the install opened.
+  await firefox.close();
+  firefox = await launch(site, undefined, { keepWelcome: true });
+  const page = firefox.welcome!;
+  expect((await firefox.urls()).filter((url) => url.includes("view=welcome"))).toHaveLength(1);
+  await page.until(`document.querySelector("#pin-state")?.textContent !== ""`);
+  expect(await page.evaluate<string>(`document.querySelector("#welcome h2").textContent`)).toBe("Ready to convert");
+  const pinned = await page.evaluate<boolean>(`browser.action.getUserSettings().then((settings) => settings.isOnToolbar)`);
+  expect(await page.evaluate<string>(`document.querySelector("#pin-state").textContent`)).toBe(pinned ? "The any2u1 button is pinned to your toolbar." : "The any2u1 button isn't pinned to your toolbar yet. To pin it:");
+  expect(await page.evaluate<boolean>(`document.querySelector("#pin-steps").hidden`)).toBe(pinned);
+  expect(await page.evaluate<string>(`document.querySelector("#pin-steps").textContent`)).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the gear beside any2u1, and choose Pin to Toolbar.");
+  expect(await page.evaluate<boolean>(`!!document.querySelector("#drop") && !document.querySelector("#drop").hidden`)).toBe(true);
+});
+
 test("a 3MF that finishes downloading opens the offer window, from the background page", async () => {
   await firefox.download(site, "/open/desk.3mf");
   const offer = await firefox.offerWindow();

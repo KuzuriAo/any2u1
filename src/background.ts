@@ -74,6 +74,11 @@ api.action.onClicked.addListener(() => {
   });
 });
 
+// Once, on install (not on an update): the convert page says what happens on the next 3MF download, and how to pin the button.
+api.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install") enqueue(async () => void (await api.tabs.create({ url: api.runtime.getURL("convert.html?view=welcome") })));
+});
+
 api.windows.onRemoved.addListener((windowId) => {
   enqueue(async () => {
     if ((await api.storage.session.get(WINDOW_KEY))[WINDOW_KEY] === windowId) await api.storage.session.remove(WINDOW_KEY);

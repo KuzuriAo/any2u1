@@ -23,10 +23,15 @@ export type Session = {
   offerWindow(): Promise<Page>;
   savedFile(name: string): Promise<Buffer>;
   pendingCount(): Promise<number>;
+  /** The tab the install opened (`convert.html?view=welcome`), when launched with `keepWelcome`; otherwise closed at launch. */
+  welcome?: Page;
 };
 
-/** Starts a browser with the built extension, or with the copy of it at `extension`. */
-export async function launch(extension: string = extensionPath): Promise<Session> {
+/**
+ * Starts a browser with the built extension, or with the copy of it at `extension`. Installing it opens the first-run
+ * tab; launch waits for it and closes it, so no test sees a tab appear partway through, unless `keepWelcome` is set.
+ */
+export async function launch(extension: string = extensionPath, { keepWelcome = false }: { keepWelcome?: boolean } = {}): Promise<Session> {
   const downloads = mkdtempSync(join(tmpdir(), "extension-downloads-"));
   const profile = mkdtempSync(join(tmpdir(), "extension-profile-"));
   mkdirSync(join(profile, "Default"));
@@ -44,6 +49,9 @@ export async function launch(extension: string = extensionPath): Promise<Session
 
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
   const origin = `chrome-extension://${new URL(worker.url()).host}`;
+  const isWelcome = (page: Page) => page.url().includes("view=welcome");
+  const welcome = context.pages().find(isWelcome) ?? (await context.waitForEvent("page", { predicate: isWelcome, timeout: 15_000 }));
+  if (!keepWelcome) await welcome.close();
   const requests: string[] = [];
   context.on("request", (request) => requests.push(request.url()));
 
@@ -51,6 +59,7 @@ export async function launch(extension: string = extensionPath): Promise<Session
     context,
     worker,
     origin,
+    ...(keepWelcome ? { welcome } : {}),
     downloads,
     requests,
     close: () => context.close(),
