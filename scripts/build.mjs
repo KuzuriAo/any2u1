@@ -79,7 +79,9 @@ const base = {
   incognito: "not_allowed",
 };
 
-writeFileSync(join(chrome, "manifest.json"), `${JSON.stringify({ ...base, background: { service_worker: "background.js" } }, null, 2)}\n`);
+// The oldest Chrome (and Edge, by its Chromium version) this works in, so a store offers it to no older one: the build
+// tool writes code for Chrome 111 and newer by default, and the badge's text color (action.setBadgeTextColor) needs 110.
+writeFileSync(join(chrome, "manifest.json"), `${JSON.stringify({ ...base, minimum_chrome_version: "111", background: { service_worker: "background.js" } }, null, 2)}\n`);
 
 cpSync(chrome, firefox, { recursive: true });
 writeFileSync(join(firefox, "manifest.json"), `${JSON.stringify({

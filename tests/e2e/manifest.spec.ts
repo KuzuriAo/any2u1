@@ -80,11 +80,12 @@ for (const target of ["chrome", "firefox"]) {
   });
 }
 
-test("the two builds differ only in how the manifest declares the background script", () => {
-  const { background: chromeBackground, ...chrome } = manifestOf("chrome");
+test("the two builds differ only in how the manifest declares the background script and the oldest browser", () => {
+  const { background: chromeBackground, minimum_chrome_version: oldestChrome, ...chrome } = manifestOf("chrome");
   const { background: firefoxBackground, browser_specific_settings: gecko, ...firefox } = manifestOf("firefox");
   expect(chrome).toEqual(firefox);
   expect(chromeBackground).toEqual({ service_worker: "background.js" });
+  expect(oldestChrome).toBe("111");
   expect(firefoxBackground).toEqual({ scripts: ["background.js"] });
   expect(gecko).toMatchObject({ gecko: { id: expect.any(String), data_collection_permissions: { required: ["none"] } } });
 });
@@ -94,4 +95,18 @@ test("Firefox needs a supported desktop release, and nothing claims Firefox for 
   // 153 is the oldest supported ESR. Firefox for Android has had no downloads API since 79, so the extension can't run there.
   expect(settings.gecko.strict_min_version).toBe("153.0");
   expect(settings).not.toHaveProperty("gecko_android");
+});
+
+test("Chrome and Edge need a release the build is written for, with every API the background script calls", async () => {
+  // The browsers the build tool writes code for, as this project's own configuration resolves; a change there has to
+  // change the manifest too.
+  const { resolveConfig } = await import("vite");
+  const targets = (await resolveConfig({ root: fileURLToPath(new URL("../..", import.meta.url)), logLevel: "silent" }, "build")).build.target;
+  const chromeTarget = (Array.isArray(targets) ? targets : [targets]).find((target): target is string => typeof target === "string" && target.startsWith("chrome"));
+  const written = Number(chromeTarget!.slice("chrome".length));
+  const oldest = Number(manifestOf("chrome").minimum_chrome_version);
+  expect(oldest).toBeGreaterThanOrEqual(written);
+  // action.setBadgeTextColor is in Chrome 110 and newer; storage.session in 102.
+  expect(oldest).toBeGreaterThanOrEqual(110);
+  expect(manifestOf("firefox")).not.toHaveProperty("minimum_chrome_version");
 });
