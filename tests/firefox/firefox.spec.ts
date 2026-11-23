@@ -5,7 +5,7 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
-import { fixture, longNamesProject, plateNotesProject, SAMPLE, sha256 } from "../shared/fixtures";
+import { fixture, longNamesProject, plateNotesProject, POLYMAKER, SAMPLE, sha256 } from "../shared/fixtures";
 import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 import { launch, type Session } from "./firefox";
@@ -187,6 +187,33 @@ test("a project with more filaments than toolheads says first what its plates ne
   expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`)).toEqual(library.report.notes.map((note) => note.text));
   expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filaments per plate", "Plates"]);
   expect(await page.evaluate<number>(`document.querySelectorAll(".converted .filaments li").length`)).toBe(17);
+  for (const layout of LAYOUTS) {
+    await host.evaluate(frameAt(layout));
+    await page.evaluate(`(document.documentElement.style.fontSize = ${JSON.stringify(layout.rootFont)})`);
+    await page.until(`window.innerWidth === ${layout.width} && window.innerHeight === ${layout.height}`, 5_000);
+    expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, layout.name).toEqual([]);
+  }
+});
+
+test("a Polymaker project with the Snapmaker option: the library's file and notes, with what Snapmaker Space's review makes of five colors on a plate, and each short type on one line at every desktop size", async () => {
+  const library = await convert(fixture(POLYMAKER), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+  // In a frame of each size, as above.
+  const host = await firefox.open("settings.html");
+  const frameAt = (layout: { width: number; height: number }) => `(() => { const frame = document.querySelector("#sized") ?? document.body.appendChild(Object.assign(document.createElement("iframe"), { id: "sized", src: "convert.html?view=window" })); frame.style.cssText = "position: fixed; inset: 0 auto auto 0; z-index: 1; border: 0; width: ${layout.width}px; height: ${layout.height}px"; return true; })()`;
+  await host.evaluate(frameAt(LAYOUTS[0]));
+  const page = await firefox.frame(host, "convert.html?view=window");
+  await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+  await page.evaluate(`(() => { const select = document.querySelector("#filament-names"); select.value = "snapmaker"; select.dispatchEvent(new Event("change")); return true; })()`);
+  await page.until(`browser.storage.local.get("settings").then(({ settings }) => settings?.convert?.filamentNames === "snapmaker")`);
+  await page.setFiles("#file", [{ name: POLYMAKER, bytes: fixture(POLYMAKER) }], "#choose");
+  const output = POLYMAKER.replace(/\.3mf$/, "_U1.3mf");
+  await page.until(`document.querySelector(".converted strong")?.textContent === ${JSON.stringify(output)}`);
+  expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
+  const notes = await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`);
+  expect(notes).toEqual(library.report.notes.map((note) => note.text));
+  expect(notes).toContain("Snapmaker Space's review turns down more than four colors on one plate unless the print pauses at filament changes or uses Full Spectrum, and plate 6 uses 5.");
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filaments per plate", "Filament presets", "Plates"]);
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .filaments .fname")].map((name) => name.textContent)`)).toEqual(library.report.filaments.map((filament) => filament.outputName));
   for (const layout of LAYOUTS) {
     await host.evaluate(frameAt(layout));
     await page.evaluate(`(document.documentElement.style.fontSize = ${JSON.stringify(layout.rootFont)})`);

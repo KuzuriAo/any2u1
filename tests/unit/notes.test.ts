@@ -5,11 +5,11 @@ import { bundledProfileSource } from "any2orca/node";
 import { describe, expect, it } from "vitest";
 import { noteGroups, OTHER_TITLE, TOPIC_TITLES } from "../../src/core/notes";
 import { FILAMENT_HELP } from "../../src/core/settings";
-import { plateNotesProject } from "../shared/fixtures";
+import { fixture, plateNotesProject, POLYMAKER } from "../shared/fixtures";
 
 const sample = readFileSync(new URL("../fixtures/bambu-studio-2.8.4.57-beta.3mf", import.meta.url));
 const h3cMixed = readFileSync(new URL("../fixtures/bambu-studio-2.9.1.70-h3c-mixed.3mf", import.meta.url));
-const reportOf = async (file: Buffer, options: { nozzle?: "0.6"; filamentComplianceMode?: "snapmaker" } = {}) => (await convert(file, { profiles: bundledProfileSource(), ...options })).report;
+const reportOf = async (file: Buffer, options: { nozzle?: "0.6"; filamentComplianceMode?: "snapmaker" | "generic" } = {}) => (await convert(file, { profiles: bundledProfileSource(), ...options })).report;
 const note = (topic: string, text: string): ConvertNote => ({ topic, text });
 /** The same sentence in the older lists' style: a lower-case start and no final period are allowed there. */
 const plain = (text: string) => text.replace(/\.$/, "").replace(/^./, (first) => first.toLowerCase());
@@ -53,6 +53,22 @@ describe("a result's notes", () => {
       { title: "Filaments per plate", notes: [report.notes[0]!.text, report.notes[1]!.text] },
       { title: "Plates", notes: [report.notes[2]!.text] },
     ]);
+  });
+  it.each(["snapmaker", "generic"] as const)("say what Snapmaker Space's review makes of a plate with five colors with the %s presets, after what the plate needs to print at all; Original says only the second", async (option) => {
+    const space = "Snapmaker Space's review turns down more than four colors on one plate unless the print pauses at filament changes or uses Full Spectrum, and plate 6 uses 5.";
+    const needs = /^Plate 6 needs 5 filaments at the same height /;
+    const report = await reportOf(fixture(POLYMAKER), { filamentComplianceMode: option });
+    expect(report.notes[0]).toMatchObject({ topic: "plate-filaments", slots: [1, 2, 3, 5, 6] });
+    expect(report.notes[0]!.text).toMatch(needs);
+    expect(report.notes.filter((n) => n.text === space)).toEqual([{ topic: "filament-presets", text: space }]);
+    const groups = noteGroups(report.notes);
+    expect(groups.map((group) => group.title)).toEqual(["Filaments per plate", "Filament presets", "Plates"]);
+    // The last of the presets' notes, so it reads after which filaments took which preset.
+    expect(groups[1]!.notes.at(-1)).toBe(space);
+    const original = await reportOf(fixture(POLYMAKER));
+    expect(original.notes[0]!.text).toMatch(needs);
+    expect(original.notes.some((n) => n.text.includes("Snapmaker Space"))).toBe(false);
+    expect(noteGroups(original.notes).map((group) => group.title)).toEqual(["Filaments per plate", "Plates"]);
   });
   it("keep a filament the U1 can't take as it is ahead of the plates' filaments", async () => {
     const report = await reportOf(plateNotesProject("bambu-studio-2.9.1.70-h3c-mixed.3mf", "Cylinder"));

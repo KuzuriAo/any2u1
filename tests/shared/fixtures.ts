@@ -14,6 +14,11 @@ export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).
 export const libraryVersion = (JSON.parse(readFileSync(fileURLToPath(new URL("../../node_modules/any2orca/package.json", import.meta.url)), "utf-8")) as { version: string }).version;
 export const SAMPLE = "bambu-studio-2.8.4.57-beta.3mf";
 /**
+ * Seven plates and six filaments: two Polymaker PLAs, a Polymaker PETG, a Bambu PLA, a Polymaker ABS and a Polymaker
+ * ASA. Plate 6 prints five of them at the same height.
+ */
+export const POLYMAKER = "bambu-studio-2.9.1.70-polymaker-prime-tower.3mf";
+/**
  * The PrusaSlicer fixtures: a box, a box with painted fuzzy skin, a four-filament scene, that scene spread over four beds,
  * and the four beds from 2.9.7 with known pauses on some beds only.
  */

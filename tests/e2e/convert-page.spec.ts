@@ -5,9 +5,9 @@ import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
-import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
+import { FILAMENT_ROWS, LAYOUTS, textContrast, type FilamentRows, type TextContrast } from "../shared/layout";
 import { libraryVersion } from "./helpers";
-import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, plateNotesProject, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
+import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, plateNotesProject, POLYMAKER, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -349,6 +349,57 @@ test("a project with more filaments than toolheads says first what its plates ne
   // The check does see the notes: one that couldn't wrap widens its card, and the page with it.
   await page.addStyleTag({ content: ".notes li { white-space: nowrap; }" });
   expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems.join(" ")).toContain("the page scrolls sideways");
+});
+
+test("a Polymaker project with the Snapmaker option: the library's bytes, the Polymaker presets by name, and what Snapmaker Space's review makes of five colors on a plate, read in the small window in light and dark", async () => {
+  const library = await convert(fixture(POLYMAKER), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+  expect(library.report.filaments.map((filament) => filament.outputName)).toEqual([
+    "Polymaker General PLA Family @U1",
+    "Polymaker General PLA Family @U1",
+    "Generic PETG",
+    "Snapmaker PLA SnapSpeed @U1",
+    "Snapmaker ABS @U1 0.4 nozzle",
+    "Snapmaker ASA @U1 0.4 nozzle",
+  ]);
+  const space = "Snapmaker Space's review turns down more than four colors on one plate unless the print pauses at filament changes or uses Full Spectrum, and plate 6 uses 5.";
+  expect(library.report.notes.filter((note) => note.text === space)).toHaveLength(1);
+
+  const page = await session.open("convert.html?view=window");
+  await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+  await page.locator("summary").click();
+  await page.selectOption("#filament-names", "snapmaker");
+  await page.setInputFiles("#file", fixturePath(POLYMAKER));
+  const output = POLYMAKER.replace(/\.3mf$/, "_U1.3mf");
+  await expect(page.locator(".converted strong")).toHaveText(output);
+  expect(sha256(await session.savedFile(output))).toBe(sha256(library.output));
+  await expect(page.locator(".converted .filaments li .fname")).toHaveText(library.report.filaments.map((filament) => filament.outputName));
+  expect(await page.locator(".converted .notes li").allTextContents()).toEqual(library.report.notes.map((note) => note.text));
+  // What the plate needs to print at all comes first; Space's review is the last of the presets' notes.
+  await expect(page.locator(".converted .notes h3")).toHaveText(["Filaments per plate", "Filament presets", "Plates"]);
+  await expect(page.locator(".converted .notes li").first()).toContainText("Plate 6 needs 5 filaments at the same height");
+  await expect(page.locator(".converted .notes ul").nth(1).locator("li").last()).toHaveText(space);
+
+  const note = page.locator(".converted .notes li", { hasText: "Snapmaker Space's review" });
+  const behind: string[] = [];
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await note.scrollIntoViewIfNeeded();
+    await expect(note, colorScheme).toBeInViewport({ ratio: 1 });
+    for (const selector of [".converted .notes li", ".converted .notes h3", ".converted .filaments .fname"]) {
+      const contrast = await page.evaluate<TextContrast>(textContrast(selector));
+      expect(contrast.ratio, `${selector} in ${colorScheme}: ${contrast.text} on ${contrast.behind}`).toBeGreaterThanOrEqual(4.5);
+      if (selector.endsWith("li")) behind.push(contrast.behind);
+    }
+    for (const layout of LAYOUTS) {
+      await page.setViewportSize({ width: layout.width, height: layout.height });
+      await page.evaluate((size) => (document.documentElement.style.fontSize = size), layout.rootFont);
+      expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, `${layout.name}, ${colorScheme}`).toEqual([]);
+    }
+    await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+    await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+  }
+  // The two looks were two looks: the note's card isn't the same color in both.
+  expect(behind[0]).not.toBe(behind[1]);
 });
 
 test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {

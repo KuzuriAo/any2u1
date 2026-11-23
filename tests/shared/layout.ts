@@ -69,3 +69,23 @@ export const FILAMENT_ROWS = `(${CHECK})(document)`;
 
 /** The same, run in a page on the frame `selector` in it, for a browser that can't size the page itself. */
 export const filamentRowsInFrame = (selector: string) => `(() => { const frame = document.querySelector(${JSON.stringify(selector)}); return (${CHECK})(frame.contentDocument); })()`;
+
+/**
+ * How well the text of the first element matching `selector` stands out from what is behind it: the contrast ratio
+ * WCAG defines, from 1 (none) to 21, with the two colors as the browser resolved them.
+ */
+export const textContrast = (selector: string) => `(() => {
+  const channels = (color) => (color.match(/[\\d.]+/g) ?? []).map(Number);
+  const light = (color) => { const [r, g, b] = channels(color).map((v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const element = document.querySelector(${JSON.stringify(selector)});
+  const text = getComputedStyle(element).color;
+  let behind = "rgb(255, 255, 255)";
+  for (let at = element; at; at = at.parentElement) {
+    const color = getComputedStyle(at).backgroundColor;
+    if (channels(color).length === 3) { behind = color; break; }
+  }
+  const [a, b] = [light(text), light(behind)].sort((x, y) => y - x);
+  return { text, behind, ratio: (a + 0.05) / (b + 0.05) };
+})()`;
+
+export type TextContrast = { text: string; behind: string; ratio: number };
