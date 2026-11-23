@@ -35,25 +35,36 @@ async function drawHosts(): Promise<void> {
       }, "link")))));
 }
 
+/** The switches as stored. They start disabled in the page, and take clicks from the first time they show what is stored. */
 function drawSwitches(settings: Settings): void {
   enabled.checked = settings.enabled;
   styleWindow.checked = settings.offerStyle === "window";
   styleBadge.checked = settings.offerStyle === "badge";
   need("#pin-tip").hidden = settings.offerStyle !== "badge";
   askWhere.checked = settings.askWhereToSave;
+  for (const input of [enabled, styleWindow, styleBadge, askWhere]) input.disabled = false;
 }
 
-enabled.addEventListener("change", () => void updateSettings((s) => (s.enabled = enabled.checked)));
+// Each takes its value when it changes: by the time the save reads the stored settings, the box may have been drawn again.
+enabled.addEventListener("change", () => {
+  const on = enabled.checked;
+  void updateSettings((s) => (s.enabled = on));
+});
 styleWindow.addEventListener("change", () => void updateSettings((s) => (s.offerStyle = "window")));
 styleBadge.addEventListener("change", () => void updateSettings((s) => (s.offerStyle = "badge")));
-askWhere.addEventListener("change", () => void updateSettings((s) => (s.askWhereToSave = askWhere.checked)));
+askWhere.addEventListener("change", () => {
+  const on = askWhere.checked;
+  void updateSettings((s) => (s.askWhereToSave = on));
+});
 
 async function draw(): Promise<void> {
+  // The switches don't wait for the converter's list of releases, and are drawn once here: a later change comes
+  // through onSettingsChanged, so nothing below can draw over a click.
+  drawSwitches(await loadSettings());
   const releases = await listReleases();
-  // The notice comes first: it clears a saved choice the catalog no longer holds.
+  // The notice comes before the options: it clears a saved choice the catalog no longer holds.
   await showReleaseNotice(releases);
   const settings = await loadSettings();
-  drawSwitches(settings);
   drawQuiet(settings);
   renderOptions(options, settings.convert, releases);
 }

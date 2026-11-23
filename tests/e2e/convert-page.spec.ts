@@ -745,12 +745,35 @@ test("a canceled Save dialog says the file wasn't saved, calmly", async () => {
 
 test("the settings page switches Ask where to save on and off", async () => {
   const page = await session.open("settings.html");
-  // The page shows the stored settings a moment after it loads; a click before that could be drawn over.
-  await expect(page.locator("#orca-version")).toBeVisible();
   const box = page.locator("#ask-where");
   await expect(box).not.toBeChecked();
   await box.check();
   await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { askWhereToSave?: boolean } | undefined)?.askWhereToSave)).toBe(true);
   await box.uncheck();
   await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { askWhereToSave?: boolean } | undefined)?.askWhereToSave)).toBe(false);
+});
+
+test("a settings switch takes no click until it shows what is stored, so a click while the page loads is never drawn over or saved as the old value", async () => {
+  await setSettings(session, { askWhereToSave: true, offerStyle: "badge" });
+  const page = await session.context.newPage();
+  // A slow machine: every read of the stored settings takes most of a second to come back.
+  await page.addInitScript(() => {
+    const get = chrome.storage.local.get.bind(chrome.storage.local) as (...args: unknown[]) => Promise<unknown>;
+    (chrome.storage.local as unknown as { get: (...args: unknown[]) => Promise<unknown> }).get = (...args) => get(...args).then((value) => new Promise((resolve) => setTimeout(() => resolve(value), 700)));
+  });
+  await page.goto(`${session.origin}/settings.html`);
+  const switches = ["#enabled", "#style-window", "#style-badge", "#ask-where"];
+  for (const id of switches) await expect(page.locator(id), id).toBeDisabled();
+  // A click now changes nothing, on the page or in storage.
+  await page.locator("#ask-where").click({ force: true });
+  await expect(page.locator("#ask-where")).not.toBeChecked();
+  for (const id of switches) await expect(page.locator(id), id).toBeEnabled();
+  await expect(page.locator("#ask-where")).toBeChecked();
+  await expect(page.locator("#style-badge")).toBeChecked();
+  // The first click it takes is kept, while the rest of the page (the releases, the options) is still loading.
+  await page.locator("#ask-where").uncheck();
+  await expect.poll(() => session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { askWhereToSave?: boolean } | undefined)?.askWhereToSave)).toBe(false);
+  await expect(page.locator("#orca-version")).toBeVisible();
+  await expect(page.locator("#ask-where")).not.toBeChecked();
+  expect(await session.worker.evaluate(async () => ((await chrome.storage.local.get("settings")).settings as { askWhereToSave?: boolean; offerStyle?: string } | undefined))).toMatchObject({ askWhereToSave: false, offerStyle: "badge" });
 });
