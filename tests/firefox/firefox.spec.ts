@@ -5,7 +5,7 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
-import { fixture, longNamesProject, plateNotesProject, POLYMAKER, SAMPLE, sha256 } from "../shared/fixtures";
+import { fixture, longNamesProject, plateNotesProject, POLYMAKER, SAMPLE, sha256, sharedToolheadProject } from "../shared/fixtures";
 import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 import { launch, type Session } from "./firefox";
@@ -236,6 +236,37 @@ test("a Polymaker project with the Snapmaker option: the library's file and note
     expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, layout.name).toEqual([]);
   }
 });
+
+for (const pause of [true, false]) {
+  test(`a plate on which two filaments share a toolhead, ${pause ? "with the pause already in the project" : "with no pause yet"}: the library's file and notes, and the whole plan in sight in the small window`, async () => {
+    const project = sharedToolheadProject({ pause });
+    const library = await convert(project, { profiles: bundledProfileSource() });
+    const plan = library.report.notes.find((note) => note.topic === "plate-filaments" && note.text.startsWith("Plate 2 "))!;
+    expect(plan.text).toContain(pause ? "the project already has a pause at layer 60" : "add a pause on a layer from 26 to 100");
+    // In a frame of each size, as above.
+    const host = await firefox.open("settings.html");
+    const frameAt = (layout: { width: number; height: number }) => `(() => { const frame = document.querySelector("#sized") ?? document.body.appendChild(Object.assign(document.createElement("iframe"), { id: "sized", src: "convert.html?view=window" })); frame.style.cssText = "position: fixed; inset: 0 auto auto 0; z-index: 1; border: 0; width: ${layout.width}px; height: ${layout.height}px"; return true; })()`;
+    await host.evaluate(frameAt(LAYOUTS[0]));
+    const page = await firefox.frame(host, "convert.html?view=window");
+    await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+    const name = pause ? "shared-toolhead-pause.3mf" : "shared-toolhead.3mf";
+    await page.setFiles("#file", [{ name, bytes: project }], "#choose");
+    const output = name.replace(/\.3mf$/, "_U1.3mf");
+    await page.until(`document.querySelector(".converted strong")?.textContent === ${JSON.stringify(output)}`);
+    expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
+    expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`)).toEqual(library.report.notes.map((note) => note.text));
+    expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filaments per plate", "Plates"]);
+    // As converted, with no scrolling: the result's name and the whole plan are in sight together.
+    const inSight = `(() => { window.scrollTo(0, 0); const plan = [...document.querySelectorAll(".converted .notes li")].find((li) => li.textContent === ${JSON.stringify(plan.text)}); return [document.querySelector(".converted strong"), plan].every((part) => { const box = part.getBoundingClientRect(); return box.top >= 0 && box.bottom <= window.innerHeight; }); })()`;
+    expect(await page.evaluate<boolean>(inSight)).toBe(true);
+    for (const layout of LAYOUTS) {
+      await host.evaluate(frameAt(layout));
+      await page.evaluate(`(document.documentElement.style.fontSize = ${JSON.stringify(layout.rootFont)})`);
+      await page.until(`window.innerWidth === ${layout.width} && window.innerHeight === ${layout.height}`, 5_000);
+      expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, layout.name).toEqual([]);
+    }
+  });
+}
 
 test("the settings switches take clicks once they show what is stored, and keep them", async () => {
   const page = await firefox.open("settings.html");

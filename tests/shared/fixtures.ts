@@ -53,7 +53,7 @@ export function longNamesProject(): Buffer {
  * A project with more filaments than the U1 has toolheads, made from one of the scene fixtures: seventeen filaments
  * (copies of the first), one object on filament 17 on a plate that also prints filament 1, and filament changes at
  * four heights on plate 2. The library's notes about plates' filaments follow: the long one about filament 17, the one
- * about filament changes at pauses, and a plain line for plate 1.
+ * about the two filaments of plate 2 that share a toolhead and where to add the pause, and a plain line for plate 1.
  */
 export function plateNotesProject(base = SAMPLE, object = "Disc"): Buffer {
   const count = 17;
@@ -73,5 +73,19 @@ export function plateNotesProject(base = SAMPLE, object = "Disc"): Buffer {
   entries["Metadata/model_settings.config"] = strToU8(moved);
   const changes = [[5, 1], [10, 2], [15, 3], [20, 5]].map(([height, filament]) => `<layer top_z="${height}" type="2" extruder="${filament}" color="#112233" extra="" gcode="tool_change"/>`).join("\n");
   entries["Metadata/custom_gcode_per_layer.xml"] = strToU8(`<?xml version="1.0" encoding="utf-8"?>\n<custom_gcodes_per_layer>\n<plate>\n<plate_info id="2"/>\n${changes}\n<mode value="MultiAsSingle"/>\n</plate>\n</custom_gcodes_per_layer>\n`);
+  return Buffer.from(zipSync(entries));
+}
+
+/**
+ * The Polymaker project with plate 2 changed the way the library's own example test changes it: filament changes to 1,
+ * 2, 3 and 5 at 5, 10, 15 and 20 mm, on a plate that prints filament 4, and with `pause`, a pause at 12 mm. Filaments 4
+ * and 5 then share a toolhead, and the library's note says how the plate prints: what to load, and where the pause is or
+ * goes.
+ */
+export function sharedToolheadProject({ pause }: { pause: boolean }): Buffer {
+  const entries = unzipSync(fixture(POLYMAKER));
+  const changes = [[5, 1], [10, 2], [15, 3], [20, 5]].map(([height, filament]) => `<layer top_z="${height}" type="2" extruder="${filament}" color="" extra="" gcode="tool_change"/>`).join("");
+  const stop = pause ? `<layer top_z="12" type="1" extruder="1" color="" extra="" gcode="M601"/>` : "";
+  entries["Metadata/custom_gcode_per_layer.xml"] = strToU8(`<custom_gcodes_per_layer><plate><plate_info id="2"/>${changes}${stop}<mode value="MultiAsSingle"/></plate></custom_gcodes_per_layer>`);
   return Buffer.from(zipSync(entries));
 }

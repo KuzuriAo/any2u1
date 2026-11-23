@@ -7,7 +7,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
 import { FILAMENT_ROWS, LAYOUTS, textContrast, type FilamentRows, type TextContrast } from "../shared/layout";
 import { libraryVersion } from "./helpers";
-import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, plateNotesProject, POLYMAKER, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, superSlicerProject, type Session } from "./helpers";
+import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, plateNotesProject, POLYMAKER, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, sharedToolheadProject, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -401,6 +401,53 @@ test("a Polymaker project with the Snapmaker option: the library's bytes, the Po
   // The two looks were two looks: the note's card isn't the same color in both.
   expect(behind[0]).not.toBe(behind[1]);
 });
+
+for (const pause of [true, false]) {
+  test(`a plate on which two filaments share a toolhead, ${pause ? "with the pause already in the project" : "with no pause yet"}: the library's file and its whole plan in sight in the small window, read in light and dark`, async () => {
+    const project = sharedToolheadProject({ pause });
+    const library = await convert(project, { profiles: bundledProfileSource() });
+    const plan = library.report.notes.find((note) => note.topic === "plate-filaments" && note.text.startsWith("Plate 2 "))!;
+    // The library's plan, in its words: which filaments share, where the pause is or goes, and what to load.
+    expect(plan.text).toContain("Filament 4 prints up to layer 25 and filament 5 from layer 100");
+    expect(plan.text).toContain(pause ? "the project already has a pause at layer 60, between the two" : "In Snapmaker Orca, add a pause on a layer from 26 to 100.");
+    expect(plan.text).toContain("Load filaments 1, 2, 3 and 4 to start.");
+
+    const page = await session.open("convert.html?view=window");
+    await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+    const name = pause ? "shared-toolhead-pause.3mf" : "shared-toolhead.3mf";
+    await page.setInputFiles("#file", { name, mimeType: "model/3mf", buffer: project });
+    const output = name.replace(/\.3mf$/, "_U1.3mf");
+    await expect(page.locator(".converted strong")).toHaveText(output);
+    expect(sha256(await session.savedFile(output))).toBe(sha256(library.output));
+    await expect(page.locator(".converted .saved button")).toHaveText("Show in folder");
+    expect(await page.locator(".converted .notes li").allTextContents()).toEqual(library.report.notes.map((note) => note.text));
+    await expect(page.locator(".converted .notes h3")).toHaveText(["Filaments per plate", "Plates"]);
+    // After plate 6, which can't print as it is, comes plate 2's plan.
+    const selector = ".converted .notes ul li:nth-child(2)";
+    await expect(page.locator(selector).first()).toHaveText(plan.text);
+
+    const behind: string[] = [];
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      // As converted, with no scrolling: the result's name, Show in folder and the whole plan are in sight together.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      for (const part of [page.locator(".converted strong"), page.locator(".converted .saved button"), page.locator(selector).first()]) {
+        await expect(part, colorScheme).toBeInViewport({ ratio: 1 });
+      }
+      const contrast = await page.evaluate<TextContrast>(textContrast(selector));
+      expect(contrast.ratio, `plate 2's note in ${colorScheme}: ${contrast.text} on ${contrast.behind}`).toBeGreaterThanOrEqual(4.5);
+      behind.push(contrast.behind);
+      for (const layout of LAYOUTS) {
+        await page.setViewportSize({ width: layout.width, height: layout.height });
+        await page.evaluate((size) => (document.documentElement.style.fontSize = size), layout.rootFont);
+        expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, `${layout.name}, ${colorScheme}`).toEqual([]);
+      }
+      await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+      await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+    }
+    expect(behind[0]).not.toBe(behind[1]);
+  });
+}
 
 test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {
   const page = await session.open("convert.html");
