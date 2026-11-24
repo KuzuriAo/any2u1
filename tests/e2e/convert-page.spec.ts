@@ -351,7 +351,10 @@ test("a project with more filaments than toolheads says first what its plates ne
   expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems.join(" ")).toContain("the page scrolls sideways");
 });
 
-test("a Polymaker project with the Snapmaker option: the library's bytes, the Polymaker presets by name, and what Snapmaker Space's review makes of five colors on a plate, read in the small window in light and dark", async () => {
+/** The library's note for publishing on Snapmaker Space, up to the sentence that names the plates. */
+const SPACE = "To publish on Snapmaker Space: its review rules list more than four colors on one plate as a reason to turn a file down, unless the print pauses at filament changes or uses Full Spectrum.";
+
+test("a Polymaker project with the Snapmaker option: the library's bytes, the Polymaker presets by name, and what Snapmaker Space's rules list about five colors on a plate, read in the small window in light and dark", async () => {
   const library = await convert(fixture(POLYMAKER), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
   expect(library.report.filaments.map((filament) => filament.outputName)).toEqual([
     "Polymaker General PLA Family @U1",
@@ -361,8 +364,8 @@ test("a Polymaker project with the Snapmaker option: the library's bytes, the Po
     "Snapmaker ABS @U1 0.4 nozzle",
     "Snapmaker ASA @U1 0.4 nozzle",
   ]);
-  const space = "Snapmaker Space's review turns down more than four colors on one plate unless the print pauses at filament changes or uses Full Spectrum, and plate 6 uses 5.";
-  expect(library.report.notes.filter((note) => note.text === space)).toHaveLength(1);
+  const space = `${SPACE} Plate 6 uses 5.`;
+  expect(library.report.notes.filter((note) => note.text.includes("Snapmaker Space")).map((note) => note.text)).toEqual([space]);
 
   const page = await session.open("convert.html?view=window");
   await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
@@ -374,12 +377,13 @@ test("a Polymaker project with the Snapmaker option: the library's bytes, the Po
   expect(sha256(await session.savedFile(output))).toBe(sha256(library.output));
   await expect(page.locator(".converted .filaments li .fname")).toHaveText(library.report.filaments.map((filament) => filament.outputName));
   expect(await page.locator(".converted .notes li").allTextContents()).toEqual(library.report.notes.map((note) => note.text));
-  // What the plate needs to print at all comes first; Space's review is the last of the presets' notes.
+  // What the plate needs to print at all comes first; the Space note is the last of the presets' notes.
   await expect(page.locator(".converted .notes h3")).toHaveText(["Filaments per plate", "Filament presets", "Plates"]);
   await expect(page.locator(".converted .notes li").first()).toContainText("Plate 6 needs 5 filaments at the same height");
   await expect(page.locator(".converted .notes ul").nth(1).locator("li").last()).toHaveText(space);
 
-  const note = page.locator(".converted .notes li", { hasText: "Snapmaker Space's review" });
+  const note = page.locator(".converted .notes li", { hasText: "To publish on Snapmaker Space" });
+  await expect(note).toHaveCount(1);
   const behind: string[] = [];
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
@@ -401,6 +405,71 @@ test("a Polymaker project with the Snapmaker option: the library's bytes, the Po
   // The two looks were two looks: the note's card isn't the same color in both.
   expect(behind[0]).not.toBe(behind[1]);
 });
+
+test("the same project with Original: the library's bytes, and no note about Snapmaker Space", async () => {
+  const library = await convert(fixture(POLYMAKER), { profiles: bundledProfileSource() });
+  const page = await session.open("convert.html?view=window");
+  await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+  await page.locator("summary").click();
+  await expect(page.locator("#filament-names")).toHaveValue("original");
+  await page.setInputFiles("#file", fixturePath(POLYMAKER));
+  const output = POLYMAKER.replace(/\.3mf$/, "_U1.3mf");
+  await expect(page.locator(".converted strong")).toHaveText(output);
+  expect(sha256(await session.savedFile(output))).toBe(sha256(library.output));
+  const notes = await page.locator(".converted .notes li").allTextContents();
+  expect(notes).toEqual(library.report.notes.map((note) => note.text));
+  expect(notes.filter((text) => text.includes("Snapmaker Space"))).toEqual([]);
+  await expect(page.locator(".converted .notes h3")).toHaveText(["Filaments per plate", "Plates"]);
+});
+
+for (const pause of [true, false]) {
+  test(`the Snapmaker Space note ${pause ? "leaves out a plate whose filament change already has a pause" : "names a plate whose filament change has no pause yet"}: the library's file and notes, and the note whole in the small window, read in light and dark`, async () => {
+    const project = sharedToolheadProject({ pause });
+    const library = await convert(project, { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
+    const space = `${SPACE} ${pause ? "Plate 6 uses 5." : "Plates 2 and 6 use more than four."}`;
+    expect(library.report.notes.filter((note) => note.text.includes("Snapmaker Space"))).toEqual([{ topic: "filament-presets", text: space }]);
+
+    const page = await session.open("convert.html?view=window");
+    await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+    await page.locator("summary").click();
+    await page.selectOption("#filament-names", "snapmaker");
+    const name = pause ? "five-colors-pause.3mf" : "five-colors.3mf";
+    await page.setInputFiles("#file", { name, mimeType: "model/3mf", buffer: project });
+    const output = name.replace(/\.3mf$/, "_U1.3mf");
+    await expect(page.locator(".converted strong")).toHaveText(output);
+    expect(sha256(await session.savedFile(output))).toBe(sha256(library.output));
+    expect(await page.locator(".converted .notes li").allTextContents()).toEqual(library.report.notes.map((note) => note.text));
+    await expect(page.locator(".converted .notes h3")).toHaveText(["Filaments per plate", "Filament presets", "Plates"]);
+    // Plate 2's own note says where its pause is or goes; the Space note is the last of the presets' notes.
+    await expect(page.locator(".converted .notes li", { hasText: /^Plate 2 uses 5 filaments/ })).toContainText(pause ? "the project already has a pause at layer 60, between the two" : "In Snapmaker Orca, add a pause on a layer from 26 to 100.");
+    const note = page.locator(".converted .notes li", { hasText: "To publish on Snapmaker Space" });
+    await expect(note).toHaveText(space);
+    await expect(page.locator(".converted .notes ul").nth(1).locator("li").last()).toHaveText(space);
+
+    const behind: string[] = [];
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await note.scrollIntoViewIfNeeded();
+      await expect(note, colorScheme).toBeInViewport({ ratio: 1 });
+      const heading = page.locator(".converted .notes h3", { hasText: "Filament presets" });
+      await expect(heading).toHaveCount(1);
+      for (const selector of [".converted .notes li", ".converted .notes h3"]) {
+        const contrast = await page.evaluate<TextContrast>(textContrast(selector));
+        expect(contrast.ratio, `${selector} in ${colorScheme}: ${contrast.text} on ${contrast.behind}`).toBeGreaterThanOrEqual(4.5);
+        if (selector.endsWith("li")) behind.push(contrast.behind);
+      }
+      for (const layout of LAYOUTS) {
+        await page.setViewportSize({ width: layout.width, height: layout.height });
+        await page.evaluate((size) => (document.documentElement.style.fontSize = size), layout.rootFont);
+        expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, `${layout.name}, ${colorScheme}`).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${layout.name}, ${colorScheme}`).toBe(true);
+      }
+      await page.setViewportSize({ width: LAYOUTS[0].width, height: LAYOUTS[0].height });
+      await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+    }
+    expect(behind[0]).not.toBe(behind[1]);
+  });
+}
 
 for (const pause of [true, false]) {
   test(`a plate on which two filaments share a toolhead, ${pause ? "with the pause already in the project" : "with no pause yet"}: the library's file and its whole plan in sight in the small window, read in light and dark`, async () => {

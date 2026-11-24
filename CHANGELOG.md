@@ -24,4 +24,4 @@ The first release. any2u1 is a browser extension that turns a 3MF project from a
 
 ### Converted files
 
-- Converts with any2orca 0.17.0 and any2orca-profiles 0.6.0.
+- Converts with any2orca 0.18.1 and any2orca-profiles 0.6.0.

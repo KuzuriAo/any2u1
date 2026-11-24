@@ -5,11 +5,11 @@ import { bundledProfileSource } from "any2orca/node";
 import { describe, expect, it } from "vitest";
 import { noteGroups, OTHER_TITLE, TOPIC_TITLES } from "../../src/core/notes";
 import { FILAMENT_HELP } from "../../src/core/settings";
-import { fixture, plateNotesProject, POLYMAKER } from "../shared/fixtures";
+import { fixture, plateNotesProject, POLYMAKER, sharedToolheadProject, silkAndToughProject } from "../shared/fixtures";
 
 const sample = readFileSync(new URL("../fixtures/bambu-studio-2.8.4.57-beta.3mf", import.meta.url));
 const h3cMixed = readFileSync(new URL("../fixtures/bambu-studio-2.9.1.70-h3c-mixed.3mf", import.meta.url));
-const reportOf = async (file: Buffer, options: { nozzle?: "0.6"; filamentComplianceMode?: "snapmaker" | "generic" } = {}) => (await convert(file, { profiles: bundledProfileSource(), ...options })).report;
+const reportOf = async (file: Buffer, options: { nozzle?: "0.6"; filamentComplianceMode?: "snapmaker" | "polymaker" | "generic" } = {}) => (await convert(file, { profiles: bundledProfileSource(), ...options })).report;
 const note = (topic: string, text: string): ConvertNote => ({ topic, text });
 /** The same sentence in the older lists' style: a lower-case start and no final period are allowed there. */
 const plain = (text: string) => text.replace(/\.$/, "").replace(/^./, (first) => first.toLowerCase());
@@ -54,21 +54,50 @@ describe("a result's notes", () => {
       { title: "Plates", notes: [report.notes[2]!.text] },
     ]);
   });
-  it.each(["snapmaker", "generic"] as const)("say what Snapmaker Space's review makes of a plate with five colors with the %s presets, after what the plate needs to print at all; Original says only the second", async (option) => {
-    const space = "Snapmaker Space's review turns down more than four colors on one plate unless the print pauses at filament changes or uses Full Spectrum, and plate 6 uses 5.";
+  /** The library's note for publishing on Snapmaker Space, up to the sentence that names the plates. */
+  const SPACE = "To publish on Snapmaker Space: its review rules list more than four colors on one plate as a reason to turn a file down, unless the print pauses at filament changes or uses Full Spectrum.";
+  const spaceNotes = (notes: readonly ConvertNote[]) => notes.filter((n) => n.text.includes("Snapmaker Space"));
+  it.each(["snapmaker", "polymaker", "generic"] as const)("say what Snapmaker Space's rules list about a plate with five colors with the %s presets, after what the plate needs to print at all; Original says only the second", async (option) => {
+    const space = `${SPACE} Plate 6 uses 5.`;
     const needs = /^Plate 6 needs 5 filaments at the same height /;
     const report = await reportOf(fixture(POLYMAKER), { filamentComplianceMode: option });
     expect(report.notes[0]).toMatchObject({ topic: "plate-filaments", slots: [1, 2, 3, 5, 6] });
     expect(report.notes[0]!.text).toMatch(needs);
-    expect(report.notes.filter((n) => n.text === space)).toEqual([{ topic: "filament-presets", text: space }]);
+    expect(spaceNotes(report.notes)).toEqual([{ topic: "filament-presets", text: space }]);
     const groups = noteGroups(report.notes);
     expect(groups.map((group) => group.title)).toEqual(["Filaments per plate", "Filament presets", "Plates"]);
     // The last of the presets' notes, so it reads after which filaments took which preset.
     expect(groups[1]!.notes.at(-1)).toBe(space);
     const original = await reportOf(fixture(POLYMAKER));
     expect(original.notes[0]!.text).toMatch(needs);
-    expect(original.notes.some((n) => n.text.includes("Snapmaker Space"))).toBe(false);
+    expect(spaceNotes(original.notes)).toEqual([]);
     expect(noteGroups(original.notes).map((group) => group.title)).toEqual(["Filaments per plate", "Plates"]);
+  });
+  it("leave a plate out of the Snapmaker Space note once every filament change on it has a pause: the rules' own exception", async () => {
+    const without = await reportOf(sharedToolheadProject({ pause: false }), { filamentComplianceMode: "snapmaker" });
+    expect(spaceNotes(without.notes).map((n) => n.text)).toEqual([`${SPACE} Plates 2 and 6 use more than four.`]);
+    const paused = await reportOf(sharedToolheadProject({ pause: true }), { filamentComplianceMode: "snapmaker" });
+    expect(spaceNotes(paused.notes).map((n) => n.text)).toEqual([`${SPACE} Plate 6 uses 5.`]);
+    // Plate 2 still has its own note, which says the pause is there.
+    expect(paused.notes.find((n) => n.text.startsWith("Plate 2 "))!.text).toContain("the project already has a pause at layer 60, between the two");
+    expect(noteGroups(paused.notes).map((group) => group.title)).toEqual(["Filaments per plate", "Filament presets", "Plates"]);
+  });
+  it("say of a plate printed object by object that Snapmaker Orca sets no pauses then, under the plates' filaments, with no plan", async () => {
+    const report = await reportOf(sharedToolheadProject({ pause: false, byObject: true }));
+    const plate = report.notes.find((n) => n.text.startsWith("Plate 2 "))!;
+    expect(plate.topic).toBe("plate-filaments");
+    expect(plate.text).toBe(
+      "Plate 2 uses 5 filaments (filaments 1, 2, 3, 4 and 5), no more than 2 at the same height. The U1 prints with 4 at a time, so this plate needs filament changes at pauses. It prints object by object, and Snapmaker Orca sets no pauses then: to use them, set the print sequence to by layer in Snapmaker Orca.",
+    );
+    expect(report.swapPlans).toBeUndefined();
+    expect(noteGroups(report.notes)[0]).toMatchObject({ title: "Filaments per plate" });
+    expect(noteGroups(report.notes)[0]!.notes).toContain(plate.text);
+  });
+  it.each(["snapmaker", "polymaker"] as const)("name Polymaker's silk and tough presets for a silk and a tough PLA of Polymaker's, with the %s presets", async (option) => {
+    const report = await reportOf(silkAndToughProject(), { filamentComplianceMode: option });
+    expect(report.filaments.slice(0, 3).map((filament) => filament.outputName)).toEqual(["Polymaker Silk PLA Family @U1", "Polymaker Tough PLA Family @U1", "Generic PETG"]);
+    const presets = noteGroups(report.notes).find((group) => group.title === "Filament presets")!;
+    for (const name of ["Polymaker Silk PLA Family @U1", "Polymaker Tough PLA Family @U1"]) expect(presets.notes.some((text) => text.includes(name))).toBe(true);
   });
   it("keep a filament the U1 can't take as it is ahead of the plates' filaments", async () => {
     const report = await reportOf(plateNotesProject("bambu-studio-2.9.1.70-h3c-mixed.3mf", "Cylinder"));

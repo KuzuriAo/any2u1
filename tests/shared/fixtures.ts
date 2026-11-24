@@ -80,13 +80,19 @@ export function plateNotesProject(base = SAMPLE, object = "Disc"): Buffer {
  * The Polymaker project with plate 2 changed the way the library's own example test changes it: filament changes to 1,
  * 2, 3 and 5 at 5, 10, 15 and 20 mm, on a plate that prints filament 4, and with `pause`, a pause at 12 mm. Filaments 4
  * and 5 then share a toolhead, and the library's note says how the plate prints: what to load, and where the pause is or
- * goes.
+ * goes. With `byObject`, the project prints object by object, as the library's own test sets it: Snapmaker Orca sets no
+ * pauses then, so there is no plan, and the note says to print by layer to use them.
  */
-export function sharedToolheadProject({ pause }: { pause: boolean }): Buffer {
+export function sharedToolheadProject({ pause, byObject = false }: { pause: boolean; byObject?: boolean }): Buffer {
   const entries = unzipSync(fixture(POLYMAKER));
   const changes = [[5, 1], [10, 2], [15, 3], [20, 5]].map(([height, filament]) => `<layer top_z="${height}" type="2" extruder="${filament}" color="" extra="" gcode="tool_change"/>`).join("");
   const stop = pause ? `<layer top_z="12" type="1" extruder="1" color="" extra="" gcode="M601"/>` : "";
   entries["Metadata/custom_gcode_per_layer.xml"] = strToU8(`<custom_gcodes_per_layer><plate><plate_info id="2"/>${changes}${stop}<mode value="MultiAsSingle"/></plate></custom_gcodes_per_layer>`);
+  if (byObject) {
+    const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as Record<string, unknown>;
+    settings.print_sequence = "by object";
+    entries["Metadata/project_settings.config"] = strToU8(JSON.stringify(settings));
+  }
   return Buffer.from(zipSync(entries));
 }
 
@@ -100,5 +106,18 @@ export function thinLayersProject(): Buffer {
   entries["Metadata/layer_config_ranges.xml"] = strToU8(
     '<?xml version="1.0" encoding="utf-8"?>\n<objects>\n <object id="3">\n  <range min_z="5" max_z="10">\n   <option opt_key="extruder">2</option>\n   <option opt_key="layer_height">0.1</option>\n  </range>\n </object>\n</objects>\n',
   );
+  return Buffer.from(zipSync(entries));
+}
+
+/**
+ * The Polymaker project with its first two filaments named as a silk PLA and a tough PLA of Polymaker's, the way the
+ * library's notes for the release say to make one: each has a Polymaker preset of its own kind for the U1.
+ */
+export function silkAndToughProject(): Buffer {
+  const entries = unzipSync(fixture(POLYMAKER));
+  const settings = JSON.parse(strFromU8(entries["Metadata/project_settings.config"]!)) as { filament_settings_id: string[] };
+  settings.filament_settings_id[0] = "PolyLite Silk PLA @BBL X1C";
+  settings.filament_settings_id[1] = "PolyMax PLA @BBL X1C";
+  entries["Metadata/project_settings.config"] = strToU8(JSON.stringify(settings));
   return Buffer.from(zipSync(entries));
 }

@@ -4,14 +4,14 @@
  * profile catalog is inside the extension, so converting makes no request beyond the extension's own files.
  */
 import { createConverterWorker, type ConverterWorker } from "any2orca/worker";
-import { filamentModeNozzleSizes, type FilamentNameTable, type ReportFilament } from "any2orca";
+import type { ReportFilament } from "any2orca";
 import ConverterWorkerScript from "any2orca/worker-entry?worker";
 import { MAX_FILES_IN_ZIP, MAX_INPUT_BYTES } from "../core/limits";
 import { noteGroups, type NoteGroup } from "../core/notes";
 import { is3mfName, outputName } from "../core/names";
 import { stageText } from "../core/progress";
 import { activeRelease } from "../core/releases";
-import { convertOptions, describePrinter, layerHeightsBySize, NOZZLE_SIZES, type ConvertSettings, type OptionChoices } from "../core/settings";
+import { convertOptions, describePrinter, layerHeightsBySize, polymakerSizesFrom, type ConvertSettings, type OptionChoices } from "../core/settings";
 
 export type Converted = {
   source: string;
@@ -81,37 +81,18 @@ export async function listReleases(): Promise<string[]> {
   return listing.releases.map((release) => release.version);
 }
 
-/**
- * The nozzle sizes one release has Polymaker presets for, read from that release's own list of filament presets in the
- * extension's profile data. The converter's worker doesn't hand that list out, so the page reads the file itself: a file
- * of the extension's own, at an address built from a release number checked first. Null when it can't be read.
- */
-async function polymakerSizes(release: string, newest: boolean): Promise<string[] | null> {
-  try {
-    if (!/^\d+(\.\d+){1,3}$/.test(release)) return null;
-    const response = await fetch(new URL(newest ? "profiles/index.json" : `profiles/releases/${release}/index.json`, window.location.href));
-    if (!response.ok) return null;
-    const index = (await response.json()) as { slicer?: { version?: unknown }; filamentNames?: FilamentNameTable };
-    if (index?.slicer?.version !== release) return null;
-    const sizes = filamentModeNozzleSizes(index.filamentNames, "polymaker");
-    return sizes.filter((size) => NOZZLE_SIZES.some((known) => known === size && known !== "match"));
-  } catch {
-    return null;
-  }
-}
-
 const choicesByRelease = new Map<string, Promise<OptionChoices | undefined>>();
 
 /**
  * What one release's catalog offers the options: its layer heights for each nozzle size, and where Polymaker has
- * presets. Read when that release is the one chosen, and kept. Undefined when it can't be read: the options then
- * offer no layer height, and a later ask tries again.
+ * presets, both from the converter's own listing of that release. Read when that release is the one chosen, and kept.
+ * Undefined when it can't be read: the options then offer no layer height, and a later ask tries again.
  */
-export function optionChoices(release: string, releases: readonly string[]): Promise<OptionChoices | undefined> {
+export function optionChoices(release: string): Promise<OptionChoices | undefined> {
   let pending = choicesByRelease.get(release);
   if (!pending) {
-    pending = Promise.all([guarded(start().listProfiles({ snapmakerOrcaVersion: release })), polymakerSizes(release, releases[0] === release)]).then(
-      ([{ profiles }, sizes]): OptionChoices => ({ layerHeights: layerHeightsBySize(profiles), polymakerSizes: sizes }),
+    pending = guarded(start().listProfiles({ snapmakerOrcaVersion: release })).then(
+      ({ profiles, filamentModes }): OptionChoices => ({ layerHeights: layerHeightsBySize(profiles), polymakerSizes: polymakerSizesFrom(filamentModes) }),
       () => {
         choicesByRelease.delete(release);
         return undefined;

@@ -496,7 +496,7 @@ api.storage.onChanged.addListener((changes, area) => {
 async function drawOptions(): Promise<void> {
   const releases = await listReleases();
   const settings = await loadSettings();
-  const load = (release: string) => optionChoices(release, releases);
+  const load = (release: string) => optionChoices(release);
   const release = releaseFor(settings.convert.snapmakerOrcaVersion, releases);
   const offered = release === undefined ? undefined : await load(release);
   renderOptions(options, settings.convert, releases, offered, load);

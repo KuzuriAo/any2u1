@@ -66,7 +66,7 @@ async function draw(): Promise<void> {
   await showReleaseNotice(releases);
   const settings = await loadSettings();
   drawQuiet(settings);
-  const load = (release: string) => optionChoices(release, releases);
+  const load = (release: string) => optionChoices(release);
   const release = releaseFor(settings.convert.snapmakerOrcaVersion, releases);
   renderOptions(options, settings.convert, releases, release === undefined ? undefined : await load(release), load);
 }

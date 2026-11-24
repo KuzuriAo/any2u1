@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The library's note about layers outside the nozzle's profiles, the Layer height option, and Polymaker among the Filament choices. */
-import { convert, loadCatalog } from "any2orca";
+import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { convert, filamentModeNozzleSizes, loadCatalog } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test, type Page } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
 import { FILAMENT_CHOICES, FILAMENT_HELP, KEEP_LAYERS, LAYER_HEIGHT_HELP, LAYER_HEIGHT_MATCH_HELP, layerHeightsBySize, layerHeightText } from "../../src/core/settings";
 import { FILAMENT_ROWS, LAYOUTS, textContrast, type FilamentRows, type TextContrast } from "../shared/layout";
-import { expectOnlyThese, fixture, launch, POLYMAKER, setSettings, sha256, thinLayersProject, type Session } from "./helpers";
+import { expectOnlyThese, extensionPath, fixture, launch, POLYMAKER, setSettings, sha256, thinLayersProject, type Session } from "./helpers";
 
 let session: Session;
 test.beforeEach(async () => {
@@ -256,6 +259,95 @@ test("Polymaker can't be chosen for a nozzle size it has no presets for, the pag
   await expect(polymaker).toBeEnabled();
   await expect(reason).toBeHidden();
   await expect.poll(stored).toMatchObject({ nozzle: "match", filamentNames: "polymaker" });
+});
+
+test("for each Snapmaker Orca version, Polymaker is gray for the nozzle sizes the converter's listing of that version has no Polymaker presets for", async () => {
+  const catalog = await loadCatalog(bundledProfileSource());
+  const page = await session.open("settings.html");
+  const polymaker = page.locator("#filament-names option[value=polymaker]");
+  const versions = catalog.releases().map((release) => release.version);
+  expect(versions.length).toBeGreaterThan(1);
+  // The picker is drawn once the listing is in: Newest, then each release.
+  await expect(page.locator("#orca-version option")).toHaveCount(versions.length + 1);
+  expect(await page.locator("#orca-version option").evaluateAll((options) => options.map((option) => (option as HTMLOptionElement).value))).toEqual(["", ...versions]);
+  for (const version of [...versions].reverse()) {
+    // What the library's own helper gives for this release's catalog: the listing is documented to give the same.
+    const sizes = filamentModeNozzleSizes((await catalog.forRelease(version)).index.filamentNames, "polymaker");
+    expect(sizes).toEqual(["0.4"]);
+    await page.selectOption("#nozzle-size", "0.4");
+    await page.selectOption("#orca-version", version);
+    await expect.poll(async () => (await stored())?.snapmakerOrcaVersion).toBe(version);
+    for (const size of ["0.2", "0.4", "0.6", "0.8"]) {
+      await page.selectOption("#nozzle-size", size);
+      await expect.poll(async () => (await stored())?.nozzle).toBe(size);
+      if (sizes.includes(size)) {
+        await expect(polymaker, `${version}, ${size}`).toBeEnabled();
+        await expect(page.locator("#polymaker-reason"), `${version}, ${size}`).toBeHidden();
+      } else {
+        await expect(polymaker, `${version}, ${size}`).toBeDisabled();
+        await expect(page.locator("#polymaker-reason"), `${version}, ${size}`).toHaveText("Snapmaker Orca has Polymaker presets for the 0.4 mm nozzle only.");
+      }
+    }
+  }
+});
+
+/**
+ * A copy of the built extension whose profile data has no table of filament names for the releases named, so the
+ * converter's listing of those says nothing of the filament options. Nothing the extension ships is like that; the
+ * copy is in a temporary folder, so nothing here enters dist.
+ */
+function withoutFilamentNames(releases: "every" | string): string {
+  const copy = mkdtempSync(join(tmpdir(), "extension-no-filament-names-"));
+  cpSync(extensionPath, copy, { recursive: true });
+  const top = join(copy, "profiles", "index.json");
+  const newest = (JSON.parse(readFileSync(top, "utf-8")) as { slicer: { version: string }; releases: Array<{ version: string; path: string }> });
+  for (const release of newest.releases) {
+    if (releases !== "every" && releases !== release.version) continue;
+    const path = release.path === "." ? top : join(copy, "profiles", release.path, "index.json");
+    const index = JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+    expect(index.filamentNames, release.version).toBeDefined();
+    delete index.filamentNames;
+    writeFileSync(path, JSON.stringify(index));
+  }
+  return copy;
+}
+
+test("when the converter's listing says nothing of the filament options, Polymaker stays a choice for every nozzle size, and one stored stays as it is", async () => {
+  await session.close();
+  session = await launch(withoutFilamentNames("every"));
+  await setSettings(session, { convert: { nozzle: "0.6", filamentNames: "polymaker" } });
+  const page = await session.open("settings.html");
+  // The listing itself was read: the layer heights come from it.
+  await expect(page.locator("#layer-height option")).toHaveText(["Keep the creator's layers", "0.18 mm", "0.24 mm", "0.3 mm"]);
+  await expect(page.locator("#filament-names")).toHaveValue("polymaker");
+  for (const size of ["0.2", "0.4", "0.6", "0.8", "match"]) {
+    await page.selectOption("#nozzle-size", size);
+    await expect.poll(async () => (await stored())?.nozzle).toBe(size);
+    await expect(page.locator("#filament-names option[value=polymaker]"), size).toBeEnabled();
+    await expect(page.locator("#polymaker-reason"), size).toBeHidden();
+    await expect(page.locator("#filament-names"), size).toHaveValue("polymaker");
+  }
+  expect((await stored())?.filamentNames).toBe("polymaker");
+});
+
+test("the listing is asked for the version chosen: with one version's listing silent on the filament options, Polymaker is gray for the other only", async () => {
+  const catalog = await loadCatalog(bundledProfileSource());
+  const [newest, older] = catalog.releases().map((release) => release.version) as [string, string];
+  await session.close();
+  session = await launch(withoutFilamentNames(older));
+  const page = await session.open("settings.html");
+  const polymaker = page.locator("#filament-names option[value=polymaker]");
+  await page.selectOption("#nozzle-size", "0.6");
+  await page.selectOption("#orca-version", newest);
+  await expect.poll(stored).toMatchObject({ snapmakerOrcaVersion: newest, nozzle: "0.6" });
+  await expect(polymaker).toBeDisabled();
+  await page.selectOption("#orca-version", older);
+  await expect.poll(stored).toMatchObject({ snapmakerOrcaVersion: older, nozzle: "0.6" });
+  await expect(polymaker).toBeEnabled();
+  await expect(page.locator("#polymaker-reason")).toBeHidden();
+  await page.selectOption("#orca-version", newest);
+  await expect(polymaker).toBeDisabled();
+  await expect(page.locator("#polymaker-reason")).toHaveText("Snapmaker Orca has Polymaker presets for the 0.4 mm nozzle only.");
 });
 
 test("Polymaker stored with a nozzle size it has no presets for reads as Snapmaker, is saved so, and the file is the library's for Snapmaker", async () => {

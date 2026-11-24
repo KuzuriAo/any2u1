@@ -210,7 +210,7 @@ test("a project with more filaments than toolheads says first what its plates ne
   }
 });
 
-test("a Polymaker project with the Snapmaker option: the library's file and notes, with what Snapmaker Space's review makes of five colors on a plate, and each short type on one line at every desktop size", async () => {
+test("a Polymaker project with the Snapmaker option: the library's file and notes, with what Snapmaker Space's rules list about five colors on a plate, and each short type on one line at every desktop size", async () => {
   const library = await convert(fixture(POLYMAKER), { profiles: bundledProfileSource(), filamentComplianceMode: "snapmaker" });
   // In a frame of each size, as above.
   const host = await firefox.open("settings.html");
@@ -226,7 +226,9 @@ test("a Polymaker project with the Snapmaker option: the library's file and note
   expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
   const notes = await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`);
   expect(notes).toEqual(library.report.notes.map((note) => note.text));
-  expect(notes).toContain("Snapmaker Space's review turns down more than four colors on one plate unless the print pauses at filament changes or uses Full Spectrum, and plate 6 uses 5.");
+  expect(notes.filter((text) => text.includes("Snapmaker Space"))).toEqual([
+    "To publish on Snapmaker Space: its review rules list more than four colors on one plate as a reason to turn a file down, unless the print pauses at filament changes or uses Full Spectrum. Plate 6 uses 5.",
+  ]);
   expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toEqual(["Filaments per plate", "Filament presets", "Plates"]);
   expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .filaments .fname")].map((name) => name.textContent)`)).toEqual(library.report.filaments.map((filament) => filament.outputName));
   for (const layout of LAYOUTS) {

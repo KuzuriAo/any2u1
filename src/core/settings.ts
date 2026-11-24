@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** The user's settings. Whatever storage holds is checked on the way in, and anything malformed falls back to the default. */
+import type { WorkerConvertOptions } from "any2orca/worker";
 import { activeRelease } from "./releases";
 
 /** The Filament option's choices, in the order shown: the creator's own, then the library's `FILAMENT_COMPLIANCE_MODES` (a test checks they agree). */
@@ -59,6 +60,18 @@ export type OptionChoices = {
   layerHeights: Readonly<Record<string, readonly number[]>>;
   polymakerSizes: readonly string[] | null;
 };
+
+/**
+ * The nozzle sizes with Polymaker presets, from what the converter's profile listing says of each filament option
+ * (`filamentModes`). Null when the listing doesn't say, or says it in a shape this doesn't know: Polymaker then stays a
+ * choice for every size. Sizes the options don't offer are left out.
+ */
+export function polymakerSizesFrom(filamentModes: unknown): string[] | null {
+  if (typeof filamentModes !== "object" || filamentModes === null) return null;
+  const sizes = (filamentModes as { polymaker?: unknown }).polymaker;
+  if (!Array.isArray(sizes)) return null;
+  return NOZZLE_SIZES.filter((known) => known !== "match" && sizes.includes(known));
+}
 
 /** Each nozzle size's layer heights, from a profile list: every height once, lowest first. Anything that isn't a height is left out. */
 export function layerHeightsBySize(profiles: ReadonlyArray<{ nozzleDiameter?: unknown; layerHeight?: unknown }>): Record<string, number[]> {
@@ -177,7 +190,7 @@ export function parseSettings(stored: unknown): Settings {
  * `layerHeights`, the heights the size the file is made for has: the library refuses any other, and a stored value the
  * catalog no longer has must not fail every file.
  */
-export function convertOptions(convert: ConvertSettings, releases: readonly string[], highFlowSupported = true, layerHeights: readonly number[] = []) {
+export function convertOptions(convert: ConvertSettings, releases: readonly string[], highFlowSupported = true, layerHeights: readonly number[] = []): WorkerConvertOptions {
   const version = convert.snapmakerOrcaVersion === null ? undefined : activeRelease(convert.snapmakerOrcaVersion, releases);
   return {
     ...(version !== undefined ? { snapmakerOrcaVersion: version } : {}),

@@ -20,6 +20,7 @@ import {
   parseSettings,
   polymakerOffered,
   polymakerReason,
+  polymakerSizesFrom,
   settleConvert,
   type OptionChoices,
 } from "../../src/core/settings";
@@ -154,7 +155,9 @@ describe("high-flow only where the size the file is made for supports it", () =>
 async function catalogChoices(release?: string): Promise<OptionChoices> {
   const newest = await loadCatalog(bundledProfileSource());
   const catalog = release === undefined ? newest : await newest.forRelease(release);
-  return { layerHeights: layerHeightsBySize(catalog.list()), polymakerSizes: filamentModeNozzleSizes(catalog.index.filamentNames, "polymaker") };
+  // The converter's listing gives, for each filament option, what `filamentModeNozzleSizes` gives; a browser test asks the real one.
+  const filamentModes = Object.fromEntries(FILAMENT_COMPLIANCE_MODES.map((mode) => [mode, filamentModeNozzleSizes(catalog.index.filamentNames, mode)]));
+  return { layerHeights: layerHeightsBySize(catalog.list()), polymakerSizes: polymakerSizesFrom(filamentModes) };
 }
 
 describe("the layer height", () => {
@@ -246,6 +249,22 @@ describe("the Filament choices", () => {
     expect(polymakerReason(["0.4", "0.6"])).toBe("Snapmaker Orca has Polymaker presets for the 0.4 and 0.6 mm nozzles only.");
     // When the catalog couldn't say, it stays a choice: the library converts it as Snapmaker where it has no presets.
     for (const unknown of [undefined, { layerHeights: {}, polymakerSizes: null }]) expect(NOZZLE_SIZES.every((size) => polymakerOffered(unknown, size))).toBe(true);
+  });
+  it("take Polymaker's nozzle sizes from the converter's listing, and keep Polymaker a choice everywhere when the listing doesn't say", () => {
+    expect(polymakerSizesFrom({ snapmaker: ["0.2", "0.4", "0.6", "0.8"], polymaker: ["0.4"], generic: ["0.2", "0.4", "0.6", "0.8"] })).toEqual(["0.4"]);
+    expect(polymakerSizesFrom({ polymaker: ["0.6", "0.4"] })).toEqual(["0.4", "0.6"]);
+    expect(polymakerSizesFrom({ polymaker: [] })).toEqual([]);
+    // Sizes the options don't offer, and anything that isn't a size, are left out.
+    expect(polymakerSizesFrom({ polymaker: ["0.4", "1.0", "match", 0.6, null, "<b>"] })).toEqual(["0.4"]);
+    // No listing of the filament options, none for Polymaker, or a shape this doesn't know: it can be chosen for every size.
+    for (const absent of [undefined, null, {}, { snapmaker: ["0.4"] }, { polymaker: "0.4" }, { polymaker: null }, "polymaker", 4, []]) {
+      const sizes = polymakerSizesFrom(absent);
+      expect(sizes, JSON.stringify(absent)).toBeNull();
+      expect(NOZZLE_SIZES.every((size) => polymakerOffered({ layerHeights: {}, polymakerSizes: sizes }, size))).toBe(true);
+      // And nothing stored is changed for it.
+      const convert = { ...defaultSettings().convert, nozzle: "0.6" as const, filamentNames: "polymaker" as const };
+      expect(settleConvert(convert, { layerHeights: {}, polymakerSizes: sizes }).filamentNames).toBe("polymaker");
+    }
   });
   it("agree with the catalog, in every release: Polymaker presets for the 0.4 mm nozzle only", async () => {
     const catalog = await loadCatalog(bundledProfileSource());
