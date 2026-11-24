@@ -365,7 +365,10 @@ function allowHost(entry: PendingDownload, delivery: Extract<Delivery, { kind: "
 function pickForRow(entry: PendingDownload): void {
   void pickFiles(rowPicker).then(async (files) => {
     if (files.length === 0) return;
-    setRow(entry.id, { phase: "working", message: "Reading the file..." });
+    // The row is drawn as working before the file is read, so each line of progress has its place on it:
+    // a small file can be read and converted sooner than the list is redrawn.
+    rows.set(entry.id, { phase: "working", message: "Reading the file..." });
+    await drawPending().catch(() => undefined);
     if (await convertPicked(files, entry.site, (message) => sayOnRow(entry.id, message))) await finish(entry.id);
     else setRow(entry.id, { phase: "pick", message: "That file didn't convert. You can choose another." });
   });
