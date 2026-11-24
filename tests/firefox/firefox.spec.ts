@@ -41,7 +41,7 @@ test("installing opens one tab that says what happens on the next 3MF download, 
   const pinned = await page.evaluate<boolean>(`browser.action.getUserSettings().then((settings) => settings.isOnToolbar)`);
   expect(await page.evaluate<string>(`document.querySelector("#pin-state").textContent`)).toBe(pinned ? "The any2u1 button is pinned to your toolbar." : "The any2u1 button isn't pinned to your toolbar yet. To pin it:");
   expect(await page.evaluate<boolean>(`document.querySelector("#pin-steps").hidden`)).toBe(pinned);
-  expect(await page.evaluate<string>(`document.querySelector("#pin-steps").textContent`)).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the gear beside any2u1, and choose Pin to Toolbar.");
+  expect(await page.evaluate<string>(`document.querySelector("#pin-steps").textContent`)).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the three dots beside any2u1, and choose Pin to Toolbar.");
   expect(await page.evaluate<boolean>(`!!document.querySelector("#drop") && !document.querySelector("#drop").hidden`)).toBe(true);
 });
 

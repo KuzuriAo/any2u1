@@ -10,7 +10,7 @@ test.afterEach(async () => {
 });
 
 const welcomeTabs = (session: Session) => session.context.pages().filter((page) => page.url().includes("view=welcome"));
-const CHROMIUM_STEPS = "Click the Extensions button (the puzzle piece) in the toolbar, then the pin beside any2u1.";
+const CHROMIUM_STEPS = "Click the Extensions button (the puzzle piece) in the toolbar, then the pin beside any2u1, or its three dots and Pin to Toolbar.";
 
 /** Opens the first-run view in a new tab whose action.getUserSettings answers `pinned` (or is missing, for `"missing"`). */
 async function welcomeWith(pinned: boolean | "missing"): Promise<Page> {

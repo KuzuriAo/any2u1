@@ -7,9 +7,9 @@ const CHROME_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/5
 
 describe("the pin steps", () => {
   it("follow each family's own menu", () => {
-    expect(pinSteps("chromium")).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the pin beside any2u1.");
-    expect(pinSteps("edge")).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the eye beside any2u1.");
-    expect(pinSteps("firefox")).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the gear beside any2u1, and choose Pin to Toolbar.");
+    expect(pinSteps("chromium")).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the pin beside any2u1, or its three dots and Pin to Toolbar.");
+    expect(pinSteps("edge")).toBe(pinSteps("chromium"));
+    expect(pinSteps("firefox")).toBe("Click the Extensions button (the puzzle piece) in the toolbar, then the three dots beside any2u1, and choose Pin to Toolbar.");
   });
   it("name no browser, in any family", () => {
     for (const family of ["chromium", "edge", "firefox"] as const) expect(pinSteps(family)).not.toMatch(/\b(Chrome|Chromium|Edge|Firefox|Safari|Opera|Brave)\b/);
