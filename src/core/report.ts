@@ -5,6 +5,9 @@
  * can name something inside the file).
  */
 
+/** Where a report goes: a new issue on the project's tracker, with the bug report form. */
+export const REPORT_PROBLEM_URL = "https://github.com/KuzuriAo/any2u1/issues/new?template=bug_report.yml";
+
 export type ReportFacts = {
   code?: string;
   /** With `unsupported_slicer`: the slicer's name, as the library gives it. */

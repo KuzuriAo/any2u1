@@ -1,0 +1,28 @@
+name: Bug report
+description: A file didn't convert, or the extension misbehaved.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Please don't attach a file you aren't comfortable sharing.** The report below is usually enough, and I can ask for a file if needed. If you do attach a project, zip it first: GitHub doesn't take `.3mf` files.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: |
+        Paste the report here. For a file that didn't convert, click **Copy a report** under it. For anything else, open the extension's settings and click **Copy the versions** under Diagnostics.
+
+        It is text only: the error's code, the browser, the site's name, the file's size and the versions. It holds no file name, no address and nothing from inside the file. Read it before you paste it, and leave out the site if you'd rather not say.
+      render: text
+  - type: input
+    id: snorca
+    attributes:
+      label: Snapmaker Orca version you opened the result in
+      description: Leave empty if you didn't get that far.

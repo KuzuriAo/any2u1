@@ -47,6 +47,9 @@ a { color: var(--accent); }
 /* The browser draws checkboxes and radio buttons in this color, so they match the buttons and links. */
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .help { color: var(--muted); font-size: 0.85rem; }
+ul.help.choices { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+ul.help.choices li + li { margin-top: 0.2rem; }
+.report-link { margin-left: 1rem; }
 .tip { background: var(--tip); color: var(--tip-ink); border-radius: 6px; padding: 0.55rem 0.7rem; font-size: 0.87rem; margin-top: 0.6rem; }
 .progress { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.8rem; margin-bottom: 1rem; }
 .progress:has(#status:empty) { display: none; }

@@ -16,8 +16,16 @@ export const FILAMENT_CHOICES: Readonly<Record<FilamentNames, { label: string; d
 };
 
 /** The help under the Filament option, in the web app's words too. */
-export const FILAMENT_HELP =
-  "Original keeps the creator's filaments exactly: their names and their settings. Snapmaker, Polymaker and Generic switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Snapmaker Orca would use the preset's settings anyway once a filament carries its name.";
+/**
+ * What each choice does, one line each, in the order shown, in the any2orca web app's words (its tooltip for each choice),
+ * so the two say the same. The line under the list says what the one chosen does in short.
+ */
+export const FILAMENT_HELP: Readonly<Record<FilamentNames, string>> = {
+  original: "Keeps the creator's filament names and settings.",
+  snapmaker: "Sets each filament to a Snapmaker preset Snapmaker Orca ships, with that preset's settings, where Snapmaker makes one, and Generic otherwise. Colors and order stay.",
+  polymaker: "Sets each PLA to the Polymaker preset Snapmaker Orca ships for its kind (General, Silk or Tough PLA Family), with that preset's settings, and every other filament as the Snapmaker option does. Colors and order stay.",
+  generic: "Sets each filament to a Generic preset Snapmaker Orca ships, with that preset's settings. Colors and order stay.",
+};
 
 /** Why Polymaker can't be chosen for a nozzle size, given the sizes Snapmaker Orca has Polymaker presets for: "… for the 0.4 mm nozzle only." */
 export function polymakerReason(sizes: readonly string[]): string {
@@ -42,7 +50,7 @@ export const NOZZLE_HELP =
 export const LAYER_HEIGHT_HELP =
   "Converts the project with one layer height for every layer, from your nozzle's U1 profiles. It replaces the creator's variable layer heights and any layer heights set for part of the model.";
 /** Under the Layer height option when the nozzle size is "Match the file": there is no one size to list heights for. */
-export const LAYER_HEIGHT_MATCH_HELP = "The layer heights to choose from depend on the nozzle size, so there are none with 'Match the file'.";
+export const LAYER_HEIGHT_MATCH_HELP = "Choose a nozzle size to choose a layer height.";
 /** The Layer height option's first choice: nothing is sent, and the creator's layers stay. */
 export const KEEP_LAYERS = "Keep the creator's layers";
 /** A layer height can't be more than this; the library refuses more. Only keeps a stored value sane: the catalog's list decides. */

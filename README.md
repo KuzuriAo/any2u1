@@ -130,7 +130,7 @@ When a site won't let the extension read a file, the browser logs a red error sa
 
 <img width="560" alt="The Diagnostics section, with What's in it open to show the browser, extension and library versions" src="docs/assets/settings-diagnostics.png" />
 
-**Copy the versions** copies the browser, extension and library versions, to paste into a bug report. It names no file, site or address. **What's in it** shows the exact text.
+**Copy the versions** copies the browser, extension and library versions, to paste into a problem report. It names no file, site or address. **What's in it** shows the exact text. **Report a problem** opens the bug report form on GitHub in a new tab; a file that didn't convert has the same link beside its **Copy a report**.
 
 ## What it asks for
 

@@ -4,7 +4,7 @@ import { convert, filamentNotes, NOTE_TOPICS, type ConvertNote } from "any2orca"
 import { bundledProfileSource } from "any2orca/node";
 import { describe, expect, it } from "vitest";
 import { noteGroups, OTHER_TITLE, TOPIC_TITLES } from "../../src/core/notes";
-import { FILAMENT_HELP } from "../../src/core/settings";
+import { FILAMENT_HELP, FILAMENT_NAMES } from "../../src/core/settings";
 import { fixture, plateNotesProject, POLYMAKER, sharedToolheadProject, silkAndToughProject } from "../shared/fixtures";
 
 const sample = readFileSync(new URL("../fixtures/bambu-studio-2.8.4.57-beta.3mf", import.meta.url));
@@ -133,9 +133,14 @@ describe("a result's notes", () => {
 });
 
 describe("the Filament option's help", () => {
-  it("is the wording the any2orca web app uses", () => {
-    expect(FILAMENT_HELP).toBe(
-      "Original keeps the creator's filaments exactly: their names and their settings. Snapmaker, Polymaker and Generic switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Snapmaker Orca would use the preset's settings anyway once a filament carries its name.",
-    );
+  it("is one line for each choice, in the any2orca web app's words (its tooltip for each)", () => {
+    expect(FILAMENT_HELP).toEqual({
+      original: "Keeps the creator's filament names and settings.",
+      snapmaker: "Sets each filament to a Snapmaker preset Snapmaker Orca ships, with that preset's settings, where Snapmaker makes one, and Generic otherwise. Colors and order stay.",
+      polymaker: "Sets each PLA to the Polymaker preset Snapmaker Orca ships for its kind (General, Silk or Tough PLA Family), with that preset's settings, and every other filament as the Snapmaker option does. Colors and order stay.",
+      generic: "Sets each filament to a Generic preset Snapmaker Orca ships, with that preset's settings. Colors and order stay.",
+    });
+    expect(Object.keys(FILAMENT_HELP)).toEqual([...FILAMENT_NAMES]);
   });
 });
+

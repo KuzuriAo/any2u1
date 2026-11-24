@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from "vitest";
-import { browserOf, diagnosticsReport, failureReport } from "../../src/core/report";
+import { browserOf, diagnosticsReport, failureReport, REPORT_PROBLEM_URL } from "../../src/core/report";
 
 describe("browserOf", () => {
   it("gives the browser and its major version, not the system", () => {
@@ -40,3 +40,14 @@ describe("diagnosticsReport", () => {
     expect(diagnosticsReport({ browser: "Edge 156", extensionVersion: "0.1.0", libraryVersion: "0.5.0" })).toBe("any2u1 diagnostics\nBrowser: Edge 156\nany2u1 0.1.0, any2orca 0.5.0");
   });
 });
+
+describe("where a report goes", () => {
+  it("is the project's bug report form, at a fixed https address that carries nothing from the report", () => {
+    const url = new URL(REPORT_PROBLEM_URL);
+    expect(url.protocol).toBe("https:");
+    expect(url.host).toBe("github.com");
+    expect(url.pathname).toBe("/KuzuriAo/any2u1/issues/new");
+    expect([...url.searchParams]).toEqual([["template", "bug_report.yml"]]);
+  });
+});
+

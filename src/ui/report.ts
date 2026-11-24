@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /** A report the user can read and copy. What goes in it is decided in core/report.ts. */
 import { api } from "../browser";
-import { browserOf } from "../core/report";
+import { browserOf, REPORT_PROBLEM_URL } from "../core/report";
 import { button, el } from "./dom";
 
 export const environment = () => ({ browser: browserOf(navigator.userAgent), extensionVersion: api.runtime.getManifest().version, libraryVersion: __LIBRARY_VERSION__ });
@@ -18,5 +18,7 @@ export function reportBlock(text: string, label: string): HTMLElement {
       },
     );
   }, "link copy-report");
-  return el("div", { class: "report" }, copy, details);
+  // A fixed address, opened in a new tab: the page sends nothing itself, and the user pastes what they choose.
+  const link = el("a", { href: REPORT_PROBLEM_URL, target: "_blank", rel: "noopener noreferrer", class: "report-link" }, "Report a problem");
+  return el("div", { class: "report" }, copy, link, details);
 }

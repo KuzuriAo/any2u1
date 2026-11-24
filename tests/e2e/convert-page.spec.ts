@@ -4,6 +4,7 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { REPORT_PROBLEM_URL } from "../../src/core/report";
 import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
 import { FILAMENT_ROWS, LAYOUTS, textContrast, type FilamentRows, type TextContrast } from "../shared/layout";
 import { libraryVersion } from "./helpers";
@@ -521,7 +522,7 @@ for (const pause of [true, false]) {
 test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {
   const page = await session.open("convert.html");
   await page.locator("summary").click();
-  await expect(page.locator("#filament-names ~ .help").last()).toHaveText(FILAMENT_HELP);
+  await expect(page.locator("#filament-names ~ .help.choices li")).toHaveText([FILAMENT_HELP.original, FILAMENT_HELP.snapmaker, FILAMENT_HELP.polymaker, FILAMENT_HELP.generic].map((line, i) => `${["Original", "Snapmaker", "Polymaker", "Generic"][i]}: ${line}`));
   await page.selectOption("#filament-names", "snapmaker");
   await page.setInputFiles("#file", fixturePath(SAMPLE));
   const output = SAMPLE.replace(/\.3mf$/, "_U1.3mf");
@@ -801,6 +802,12 @@ test("a failure offers a report that names no file or address, and copies it", a
   await page.locator(".failed button.copy-report").click();
   await expect(page.locator(".failed button.copy-report")).toHaveText("Copied");
   expect(await written(page)).toEqual([shown]);
+  const link = page.locator(".failed").locator("a.report-link");
+  await expect(link).toHaveText("Report a problem");
+  await expect(link).toHaveAttribute("href", REPORT_PROBLEM_URL);
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+
 });
 
 test("the settings page copies the versions, and says what a download manager does", async () => {
@@ -810,6 +817,15 @@ test("the settings page copies the versions, and says what a download manager do
   await expect(page.locator("#diagnostics .copy-report")).toHaveText("Copied");
   const [copied] = await written(page);
   expect(copied).toMatch(/^any2u1 diagnostics\nBrowser: Chrome \d+\nany2u1 0\.1\.0, any2orca \d+\.\d+\.\d+$/);
+  const link = page.locator("#diagnostics").locator("a.report-link");
+  await expect(link).toHaveText("Report a problem");
+  await expect(link).toHaveAttribute("href", REPORT_PROBLEM_URL);
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  // What the list of sites with no offer is, and how a site gets on it.
+  await expect(page.locator("section", { has: page.locator("h2", { hasText: "Sites with no offer" }) }).locator(".help")).toHaveText(
+    "Downloads from these sites get no offer. A site is added here when you click Not on and its name under one of its offers, and Remove brings its offers back. To convert a file from one of them, click the toolbar button and choose the file.",
+  );
   // The settings page, like the others, asks for nothing but the extension's own files.
   expectOnlyThese(session.requests, session.origin);
 });

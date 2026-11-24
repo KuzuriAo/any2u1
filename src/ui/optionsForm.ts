@@ -186,6 +186,6 @@ export function renderOptions(
       filament,
       filamentChoice,
       polymakerWhy,
-      el("p", { class: "help" }, FILAMENT_HELP)),
+      el("ul", { class: "help choices" }, ...FILAMENT_NAMES.map((choice) => el("li", {}, el("strong", {}, FILAMENT_CHOICES[choice].label), ": ", FILAMENT_HELP[choice])))),
   );
 }

@@ -30,7 +30,15 @@ test("installing opens one tab that says what happens on the next 3MF download, 
   const page = session.welcome!;
   expect(welcomeTabs(session)).toHaveLength(1);
   await expect(page.locator("#welcome h2")).toHaveText("Ready to convert");
-  await expect(page.locator("#welcome > p")).toHaveText("When a 3MF finishes downloading, a small window offers to convert it for your Snapmaker U1. You can also drop a file below at any time, or open this page with the any2u1 button.");
+  await expect(page.locator("#welcome > p")).toHaveText([
+    "When a 3MF finishes downloading, a small window offers to convert it for your Snapmaker U1. You can also drop a file below at any time, or open this page with the any2u1 button.",
+    "Each file is made for the Snapmaker Orca version and nozzle size set in Options, below. Check them before your first file, and set a layer height there if you want one.",
+  ]);
+  // Options is below, as the line says, and is where those three are.
+  const options = page.locator("details", { has: page.locator("summary", { hasText: "Options" }) });
+  expect((await options.boundingBox())!.y).toBeGreaterThan((await page.locator("#welcome-options").boundingBox())!.y);
+  await options.locator("summary").click();
+  for (const field of ["#orca-version", "#nozzle-size", "#layer-height"]) await expect(options.locator(field)).toBeVisible();
   // The page converts as it always does: the drop zone is right below.
   await expect(page.locator("#drop")).toBeVisible();
   const { isOnToolbar } = await session.worker.evaluate(() => chrome.action.getUserSettings());

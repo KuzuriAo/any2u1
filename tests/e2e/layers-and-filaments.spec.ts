@@ -7,7 +7,7 @@ import { convert, filamentModeNozzleSizes, loadCatalog } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test, type Page } from "@playwright/test";
 import { strFromU8, unzipSync } from "fflate";
-import { FILAMENT_CHOICES, FILAMENT_HELP, KEEP_LAYERS, LAYER_HEIGHT_HELP, LAYER_HEIGHT_MATCH_HELP, layerHeightsBySize, layerHeightText } from "../../src/core/settings";
+import { FILAMENT_CHOICES, FILAMENT_HELP, FILAMENT_NAMES, KEEP_LAYERS, LAYER_HEIGHT_HELP, LAYER_HEIGHT_MATCH_HELP, layerHeightsBySize, layerHeightText } from "../../src/core/settings";
 import { FILAMENT_ROWS, LAYOUTS, textContrast, type FilamentRows, type TextContrast } from "../shared/layout";
 import { expectOnlyThese, extensionPath, fixture, launch, POLYMAKER, setSettings, sha256, thinLayersProject, type Session } from "./helpers";
 
@@ -205,7 +205,8 @@ test("the Filament option lists Original, Snapmaker, Polymaker and Generic, says
   await expect(page.locator("#filament-names option")).toHaveText(["Original", "Snapmaker", "Polymaker", "Generic"]);
   await expect(page.locator("#filament-names")).toHaveValue("original");
   const field = page.locator(".field").filter({ has: page.locator("#filament-names") });
-  await expect(field.locator(".help").last()).toHaveText(FILAMENT_HELP);
+  // Under the line for the one chosen, a line for each choice, in the order of the list.
+  await expect(field.locator(".help.choices li")).toHaveText(FILAMENT_NAMES.map((choice) => `${FILAMENT_CHOICES[choice].label}: ${FILAMENT_HELP[choice]}`));
   for (const choice of ["snapmaker", "generic", "original", "polymaker"] as const) {
     await page.selectOption("#filament-names", choice);
     await expect(page.locator("#filament-choice")).toHaveText(FILAMENT_CHOICES[choice].description);

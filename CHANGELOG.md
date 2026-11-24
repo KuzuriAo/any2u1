@@ -19,7 +19,7 @@ The first release. any2u1 is a browser extension that turns a 3MF project from a
   - **My nozzles are hardened steel,** so Snapmaker Orca warns about abrasive filaments correctly.
   - **Filament:** Original keeps the creator's filaments exactly, names and settings. Snapmaker, Polymaker and Generic switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Polymaker switches each PLA to a Polymaker preset, for the 0.4 mm nozzle.
 - **Offers your way:** a small window, or only a number on the toolbar button. Turn offers off, or off for one site with **Not on**.
-- **Settings** lists the hosts you gave access to, with **Remove**, and **Copy the versions** copies the browser, extension and library versions for a bug report, naming no file, site or address.
+- **Settings** lists the hosts you gave access to, with **Remove**, and **Copy the versions** copies the browser, extension and library versions for a bug report, naming no file, site or address. **Report a problem**, beside it and beside a failed file's **Copy a report**, opens the bug report form on GitHub.
 - **Permissions:** downloads and storage, plus access to one host only when you allow it. It never runs in private windows.
 
 ### Converted files
