@@ -5,7 +5,7 @@ import { convert } from "any2orca";
 import { bundledProfileSource } from "any2orca/node";
 import { expect, test } from "@playwright/test";
 import { zipSync } from "fflate";
-import { fixture, longNamesProject, plateNotesProject, POLYMAKER, SAMPLE, sha256, sharedToolheadProject } from "../shared/fixtures";
+import { fixture, longNamesProject, plateNotesProject, POLYMAKER, SAMPLE, sha256, sharedToolheadProject, thinLayersProject } from "../shared/fixtures";
 import { FILAMENT_ROWS, LAYOUTS, type FilamentRows } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 import { launch, type Session } from "./firefox";
@@ -295,4 +295,85 @@ test("the nozzle size chosen reaches the library: a 0.4 mm project made for 0.6 
   expect(await page.evaluate<string>(`document.querySelector(".converted .saved").textContent`)).toContain("for 0.6 mm nozzles");
   const library = await convert(fixture(SAMPLE), { profiles: bundledProfileSource(), nozzle: "0.6" });
   expect(sha256(await firefox.savedFile(output))).toBe(sha256(library.output));
+});
+
+/** Chooses a value in one of the options' lists, the way a person's choice reaches the page. */
+const choose = (id: string, value: string) => `(() => { const select = document.querySelector(${JSON.stringify(id)}); select.value = ${JSON.stringify(value)}; select.dispatchEvent(new Event("change")); return select.value; })()`;
+const storedConvert = (check: string) => `browser.storage.local.get("settings").then(({ settings }) => { const convert = settings?.convert ?? {}; return ${check}; })`;
+const optionTexts = (id: string) => `[...document.querySelectorAll(${JSON.stringify(`${id} option`)})].map((option) => option.textContent)`;
+
+test("layers thinner than the nozzle's profiles use: the library's file and notes, and the note under its own heading, whole in the small window", async () => {
+  const project = thinLayersProject();
+  const library = await convert(project, { profiles: bundledProfileSource(), nozzle: "0.6" });
+  const note = library.report.notes.find((each) => each.topic === "layers")!;
+  expect(note.text.startsWith("The project has layers as thin as 0.1 mm, below the 0.12 to 0.42 mm that Snapmaker's U1 profiles use for the 0.6 mm nozzle.")).toBe(true);
+  const host = await firefox.open("settings.html");
+  const frameAt = (layout: { width: number; height: number }) => `(() => { const frame = document.querySelector("#sized") ?? document.body.appendChild(Object.assign(document.createElement("iframe"), { id: "sized", src: "convert.html?view=window" })); frame.style.cssText = "position: fixed; inset: 0 auto auto 0; z-index: 1; border: 0; width: ${layout.width}px; height: ${layout.height}px"; return true; })()`;
+  await host.evaluate(frameAt(LAYOUTS[0]));
+  const page = await firefox.frame(host, "convert.html?view=window");
+  await page.until(`document.querySelector("#options-version")?.textContent.includes("Snapmaker Orca")`);
+  await page.evaluate(choose("#nozzle-size", "0.6"));
+  await page.until(storedConvert(`convert.nozzle === "0.6"`));
+  await page.setFiles("#file", [{ name: "thin-layers.3mf", bytes: project }], "#choose");
+  await page.until(`document.querySelector(".converted strong")?.textContent === "thin-layers_U1.3mf"`);
+  expect(sha256(await firefox.savedFile("thin-layers_U1.3mf"))).toBe(sha256(library.output));
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`)).toEqual(library.report.notes.map((each) => each.text));
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes h3")].map((h) => h.textContent)`)).toContain("Layer height");
+  // With its heading at the top of the window, the whole note is in sight, and nothing scrolls sideways.
+  const inSight = `(() => { const heading = [...document.querySelectorAll(".converted .notes h3")].find((h) => h.textContent === "Layer height"); const shown = [...document.querySelectorAll(".converted .notes li")].find((li) => li.textContent === ${JSON.stringify(note.text)}); heading.scrollIntoView(); return [heading, shown].every((part) => { const box = part.getBoundingClientRect(); return box.top >= 0 && box.bottom <= window.innerHeight; }) && document.documentElement.scrollWidth <= document.documentElement.clientWidth; })()`;
+  expect(await page.evaluate<boolean>(inSight)).toBe(true);
+  for (const layout of LAYOUTS) {
+    await host.evaluate(frameAt(layout));
+    await page.evaluate(`(document.documentElement.style.fontSize = ${JSON.stringify(layout.rootFont)})`);
+    await page.until(`window.innerWidth === ${layout.width} && window.innerHeight === ${layout.height}`, 5_000);
+    expect((await page.evaluate<FilamentRows>(FILAMENT_ROWS)).problems, layout.name).toEqual([]);
+    expect(await page.evaluate<boolean>(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`), layout.name).toBe(true);
+  }
+});
+
+test("the Layer height option lists the nozzle size's heights and follows the size, and a height chosen reaches the library: its file", async () => {
+  const page = await firefox.open("convert.html");
+  await page.until(`document.querySelector("#layer-height") !== null`);
+  expect(await page.evaluate<string[]>(optionTexts("#layer-height"))).toEqual(["Keep the creator's layers", "0.08 mm", "0.1 mm", "0.12 mm", "0.16 mm", "0.2 mm", "0.24 mm", "0.28 mm"]);
+  await page.evaluate(choose("#nozzle-size", "0.6"));
+  expect(await page.evaluate<string[]>(optionTexts("#layer-height"))).toEqual(["Keep the creator's layers", "0.18 mm", "0.24 mm", "0.3 mm"]);
+  expect(await page.evaluate<string>(choose("#layer-height", "0.18"))).toBe("0.18");
+  await page.until(storedConvert(`convert.nozzle === "0.6" && convert.layerHeight === 0.18`));
+  await page.until(`/0\\.6 mm nozzles and 0\\.18 mm layers\\)$/.test(document.querySelector("#options-version").textContent)`);
+  const project = thinLayersProject();
+  await page.setFiles("#file", [{ name: "one-height.3mf", bytes: project }], "#choose");
+  await page.until(`document.querySelector(".converted strong")?.textContent === "one-height_U1.3mf"`);
+  const library = await convert(project, { profiles: bundledProfileSource(), nozzle: "0.6", layerHeight: 0.18 });
+  expect(sha256(await firefox.savedFile("one-height_U1.3mf"))).toBe(sha256(library.output));
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`)).toEqual(library.report.notes.map((each) => each.text));
+  expect(await page.evaluate<string>(`document.querySelector(".converted .saved").textContent`)).toContain("using 0.18mm Standard, for 0.6 mm nozzles");
+  // A size without that height goes back to the creator's layers, in the page and in storage; Match the file has none to choose.
+  await page.evaluate(choose("#nozzle-size", "0.4"));
+  expect(await page.evaluate<string>(`document.querySelector("#layer-height").value`)).toBe("");
+  await page.until(storedConvert(`convert.nozzle === "0.4" && convert.layerHeight === null`));
+  await page.evaluate(choose("#nozzle-size", "match"));
+  expect(await page.evaluate<string[]>(optionTexts("#layer-height"))).toEqual(["Keep the creator's layers"]);
+  expect(await page.evaluate<boolean>(`document.querySelector("#layer-height").disabled`)).toBe(true);
+});
+
+test("Polymaker among the Filament choices gives the library's file, and can't be chosen for a nozzle size it has no presets for", async () => {
+  const page = await firefox.open("convert.html");
+  await page.until(`document.querySelector("#filament-names") !== null`);
+  expect(await page.evaluate<string[]>(optionTexts("#filament-names"))).toEqual(["Original", "Snapmaker", "Polymaker", "Generic"]);
+  expect(await page.evaluate<string>(choose("#filament-names", "polymaker"))).toBe("polymaker");
+  await page.until(storedConvert(`convert.filamentNames === "polymaker"`));
+  expect(await page.evaluate<string>(`document.querySelector("#filament-choice").textContent`)).toBe("Switch PLA to Polymaker presets, with their own settings; other filaments as Snapmaker.");
+  expect(await page.evaluate<boolean>(`document.querySelector("#polymaker-reason").hidden`)).toBe(true);
+  await page.setFiles("#file", [{ name: "six-filaments.3mf", bytes: fixture(POLYMAKER) }], "#choose");
+  await page.until(`document.querySelector(".converted strong")?.textContent === "six-filaments_U1.3mf"`);
+  const library = await convert(fixture(POLYMAKER), { profiles: bundledProfileSource(), filamentComplianceMode: "polymaker" });
+  expect(sha256(await firefox.savedFile("six-filaments_U1.3mf"))).toBe(sha256(library.output));
+  expect(await page.evaluate<string[]>(`[...document.querySelectorAll(".converted .notes li")].map((li) => li.textContent)`)).toEqual(library.report.notes.map((each) => each.text));
+  // At 0.6 mm it is grayed out with the reason, and the choice becomes Snapmaker, which is what it would convert as.
+  await page.evaluate(choose("#nozzle-size", "0.6"));
+  expect(await page.evaluate<boolean>(`document.querySelector("#filament-names option[value=polymaker]").disabled`)).toBe(true);
+  expect(await page.evaluate<string>(`document.querySelector("#filament-names").value`)).toBe("snapmaker");
+  expect(await page.evaluate<string>(`document.querySelector("#polymaker-reason").textContent`)).toBe("Snapmaker Orca has Polymaker presets for the 0.4 mm nozzle only.");
+  expect(await page.evaluate<boolean>(`document.querySelector("#polymaker-reason").hidden`)).toBe(false);
+  await page.until(storedConvert(`convert.nozzle === "0.6" && convert.filamentNames === "snapmaker"`));
 });

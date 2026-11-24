@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { api } from "../browser";
-import { listReleases } from "./engine";
+import { listReleases, optionChoices } from "./engine";
 import { button, el, need } from "./dom";
-import { renderOptions } from "./optionsForm";
+import { releaseFor, renderOptions } from "./optionsForm";
 import { showReleaseNotice } from "./releaseNotice";
 import { loadSettings, onSettingsChanged, updateSettings } from "./settingsStore";
 import { diagnosticsReport } from "../core/report";
@@ -66,7 +66,9 @@ async function draw(): Promise<void> {
   await showReleaseNotice(releases);
   const settings = await loadSettings();
   drawQuiet(settings);
-  renderOptions(options, settings.convert, releases);
+  const load = (release: string) => optionChoices(release, releases);
+  const release = releaseFor(settings.convert.snapmakerOrcaVersion, releases);
+  renderOptions(options, settings.convert, releases, release === undefined ? undefined : await load(release), load);
 }
 
 onSettingsChanged((settings) => {

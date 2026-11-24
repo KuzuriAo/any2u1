@@ -452,7 +452,7 @@ for (const pause of [true, false]) {
 test("the Snapmaker option says, in the library's words, which filaments now use a preset's own settings; Original says nothing of it", async () => {
   const page = await session.open("convert.html");
   await page.locator("summary").click();
-  await expect(page.locator("#filament-names ~ .help")).toHaveText(FILAMENT_HELP);
+  await expect(page.locator("#filament-names ~ .help").last()).toHaveText(FILAMENT_HELP);
   await page.selectOption("#filament-names", "snapmaker");
   await page.setInputFiles("#file", fixturePath(SAMPLE));
   const output = SAMPLE.replace(/\.3mf$/, "_U1.3mf");
@@ -495,7 +495,8 @@ test("a PrusaSlicer scene keeps all four filaments in order with their colors, a
   await expect(notes.filter({ hasText: "become pauses" })).toHaveCount(1);
   // In the library's order, as it writes them, under the one topic they share.
   expect(await notes.allTextContents()).toEqual(library.report.notes.map((note) => note.text));
-  await expect(page.locator(".converted .notes h3")).toHaveText(["From the file"]);
+  // The scene's sphere has variable layer heights, some thinner than the 0.4 mm profiles use, which the library says first.
+  await expect(page.locator(".converted .notes h3")).toHaveText(["Layer height", "From the file"]);
   await expect(page.locator(".converted")).not.toContainText(/limit|only four|at most four/i);
   expect(savedNames(session)).toEqual(["prusaslicer-2.9.6-scene_U1.3mf"]);
 });
@@ -674,7 +675,7 @@ test("a nozzle size stored wrongly reads as 0.4 mm, and the file is made for 0.4
   expect(stampOf(await session.savedFile(SAMPLE.replace(/\.3mf$/, "_U1.3mf"))).options.nozzle).toEqual({ choice: "0.4", size: "0.4" });
 });
 
-test("the settings page has the nozzle size before the high-flow toolheads, with its help, and keeps a choice", async () => {
+test("the settings page has the nozzle size before the layer height and the high-flow toolheads, with its help, and keeps a choice", async () => {
   const page = await session.open("settings.html");
   const select = page.locator("#nozzle-size");
   await expect(select).toHaveValue("0.4");
@@ -682,7 +683,8 @@ test("the settings page has the nozzle size before the high-flow toolheads, with
   await expect(page.locator("label[for=nozzle-size]")).toHaveText("Your U1's nozzle size");
   const field = page.locator(".field").filter({ has: select });
   await expect(field.locator(".help")).toHaveText(NOZZLE_HELP);
-  await expect(field.locator("+ .field .label")).toHaveText("High-flow toolheads");
+  await expect(field.locator("+ .field label")).toHaveText("Layer height");
+  await expect(field.locator("+ .field + .field .label")).toHaveText("High-flow toolheads");
   await page.selectOption("#nozzle-size", "0.8");
   await expect.poll(storedNozzle).toBe("0.8");
   await page.reload();

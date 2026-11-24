@@ -8,6 +8,7 @@ export const TOPIC_TITLES: Readonly<Record<KnownNoteTopic, string>> = {
   "plate-filaments": "Filaments per plate",
   nozzle: "Nozzle size",
   profile: "Profile",
+  layers: "Layer height",
   "filament-presets": "Filament presets",
   source: "From the file",
   settings: "Settings",

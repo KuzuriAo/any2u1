@@ -9,10 +9,10 @@ import { isPendingKey, listPending, removePending, type PendingDownload } from "
 import { deliveryOf, type Delivery } from "../core/recognize";
 import { activeRelease } from "../core/releases";
 import { madeForText } from "../core/result";
-import type { ConvertSettings } from "../core/settings";
-import { convertFile, listReleases, stopConverting, type Converted, type Outcome } from "./engine";
+import { layerHeightText, settleConvert, type ConvertSettings } from "../core/settings";
+import { convertFile, listReleases, optionChoices, stopConverting, type Converted, type Outcome } from "./engine";
 import { button, el, need } from "./dom";
-import { renderOptions } from "./optionsForm";
+import { releaseFor, renderOptions } from "./optionsForm";
 import { pickFiles } from "./picker";
 import { failureReport } from "../core/report";
 import { environment, reportBlock } from "./report";
@@ -491,16 +491,23 @@ api.storage.onChanged.addListener((changes, area) => {
 });
 
 async function drawOptions(): Promise<void> {
-  const [settings, releases] = await Promise.all([loadSettings(), listReleases()]);
-  renderOptions(options, settings.convert, releases);
-  drawMadeFor(settings.convert, releases);
+  const releases = await listReleases();
+  const settings = await loadSettings();
+  const load = (release: string) => optionChoices(release, releases);
+  const release = releaseFor(settings.convert.snapmakerOrcaVersion, releases);
+  const offered = release === undefined ? undefined : await load(release);
+  renderOptions(options, settings.convert, releases, offered, load);
+  // As the options show it: a stored layer height the nozzle size doesn't have isn't named, even for a moment.
+  drawMadeFor(settleConvert(settings.convert, offered), releases);
 }
 
 // The options start closed in the small window, so what the file will be converted for stays in sight.
 function drawMadeFor(convert: ConvertSettings, releases: readonly string[]): void {
   const version = activeRelease(convert.snapmakerOrcaVersion, releases);
   const nozzle = convert.nozzle === "match" ? "the file's nozzle size" : `${convert.nozzle} mm nozzles`;
-  need("#options-version").textContent = `(for ${version ? `Snapmaker Orca ${version} and ` : ""}${nozzle})`;
+  // A layer height chosen replaces the creator's layers in every file, so it is said here too.
+  const parts = [...(version ? [`Snapmaker Orca ${version}`] : []), nozzle, ...(convert.layerHeight !== null ? [`${layerHeightText(convert.layerHeight)} layers`] : [])];
+  need("#options-version").textContent = `(for ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0]})`;
 }
 
 // Redrawing options another page changed is fine; redrawing under the user's own click isn't needed, since the values match.

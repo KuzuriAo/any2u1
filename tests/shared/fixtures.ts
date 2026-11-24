@@ -89,3 +89,16 @@ export function sharedToolheadProject({ pause }: { pause: boolean }): Buffer {
   entries["Metadata/custom_gcode_per_layer.xml"] = strToU8(`<custom_gcodes_per_layer><plate><plate_info id="2"/>${changes}${stop}<mode value="MultiAsSingle"/></plate></custom_gcodes_per_layer>`);
   return Buffer.from(zipSync(entries));
 }
+
+/**
+ * The Polymaker project with a height range on one object that sets 0.1 mm layers, the way the library's own layer
+ * height test makes it. 0.1 mm is below what the U1's 0.6 mm profiles use and within what its 0.4 mm ones do, so made
+ * for 0.6 mm nozzles the library's note about the layers follows, and for 0.4 mm it doesn't.
+ */
+export function thinLayersProject(): Buffer {
+  const entries = unzipSync(fixture(POLYMAKER));
+  entries["Metadata/layer_config_ranges.xml"] = strToU8(
+    '<?xml version="1.0" encoding="utf-8"?>\n<objects>\n <object id="3">\n  <range min_z="5" max_z="10">\n   <option opt_key="extruder">2</option>\n   <option opt_key="layer_height">0.1</option>\n  </range>\n </object>\n</objects>\n',
+  );
+  return Buffer.from(zipSync(entries));
+}

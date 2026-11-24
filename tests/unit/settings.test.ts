@@ -1,7 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { DEFAULT_NOZZLE, NOZZLE_CHOICES } from "any2orca";
+import { DEFAULT_NOZZLE, FILAMENT_COMPLIANCE_MODES, filamentModeHasPresets, filamentModeNozzleSizes, loadCatalog, NOZZLE_CHOICES } from "any2orca";
+import { bundledProfileSource } from "any2orca/node";
 import { describe, expect, it } from "vitest";
-import { convertOptions, DEFAULT_NOZZLE_SIZE, defaultSettings, describePrinter, isQuiet, NOZZLE_HELP, NOZZLE_SIZES, parseSettings } from "../../src/core/settings";
+import {
+  convertOptions,
+  DEFAULT_NOZZLE_SIZE,
+  defaultSettings,
+  describePrinter,
+  FILAMENT_CHOICES,
+  FILAMENT_NAMES,
+  isQuiet,
+  KEEP_LAYERS,
+  LAYER_HEIGHT_HELP,
+  layerHeightsBySize,
+  layerHeightsFor,
+  layerHeightText,
+  NOZZLE_HELP,
+  NOZZLE_SIZES,
+  parseSettings,
+  polymakerOffered,
+  polymakerReason,
+  settleConvert,
+  type OptionChoices,
+} from "../../src/core/settings";
 
 describe("parseSettings", () => {
   it("defaults to on, with the small window", () => {
@@ -16,13 +37,14 @@ describe("parseSettings", () => {
       enabled: false,
       offerStyle: "badge",
       quietSites: ["a.example", "a.example", 4, "", "x".repeat(300)],
-      convert: { snapmakerOrcaVersion: "../../x", nozzle: "0.5", highFlowToolheads: [true, false], hardenedNozzles: 1, filamentNames: "other" },
+      convert: { snapmakerOrcaVersion: "../../x", nozzle: "0.5", layerHeight: "0.2", highFlowToolheads: [true, false], hardenedNozzles: 1, filamentNames: "other" },
     });
     expect(parsed).toEqual({ ...defaultSettings(), enabled: false, offerStyle: "badge", quietSites: ["a.example"] });
   });
   it("keeps a well-formed choice", () => {
-    const convert = { snapmakerOrcaVersion: "2.4.0", nozzle: "0.6", highFlowToolheads: [true, false, false, true], hardenedNozzles: true, filamentNames: "snapmaker" };
+    const convert = { snapmakerOrcaVersion: "2.4.0", nozzle: "0.6", layerHeight: 0.18, highFlowToolheads: [true, false, false, true], hardenedNozzles: true, filamentNames: "snapmaker" };
     expect(parseSettings({ convert }).convert).toEqual(convert);
+    for (const filamentNames of FILAMENT_NAMES) expect(parseSettings({ convert: { filamentNames } }).convert.filamentNames).toBe(filamentNames);
   });
   it("bounds the list of sites, keeping the newest", () => {
     const quietSites = Array.from({ length: 2000 }, (_, index) => `s${index}.example`);
@@ -92,8 +114,9 @@ describe("convertOptions", () => {
   });
   it("passes each choice on", () => {
     expect(
-      convertOptions({ snapmakerOrcaVersion: "2.4.0", nozzle: "0.6", highFlowToolheads: [true, false, false, false], hardenedNozzles: true, filamentNames: "generic" }, releases),
-    ).toEqual({ snapmakerOrcaVersion: "2.4.0", nozzle: "0.6", highFlowHotends: [true, false, false, false], hardenedNozzles: true, filamentComplianceMode: "generic" });
+      convertOptions({ snapmakerOrcaVersion: "2.4.0", nozzle: "0.6", layerHeight: 0.18, highFlowToolheads: [true, false, false, false], hardenedNozzles: true, filamentNames: "generic" }, releases, true, [0.18, 0.24, 0.3]),
+    ).toEqual({ snapmakerOrcaVersion: "2.4.0", nozzle: "0.6", layerHeight: 0.18, highFlowHotends: [true, false, false, false], hardenedNozzles: true, filamentComplianceMode: "generic" });
+    expect(convertOptions({ ...defaultSettings().convert, filamentNames: "polymaker" }, releases).filamentComplianceMode).toBe("polymaker");
     expect(convertOptions({ ...defaultSettings().convert, nozzle: "match" }, releases).nozzle).toBe("match");
   });
   it("sends the next release up when a saved one is gone, so the result names what was used", () => {
@@ -124,5 +147,120 @@ describe("high-flow only where the size the file is made for supports it", () =>
     expect(describePrinter(convert, "0.6", false)).toEqual([]);
     expect(describePrinter(convert, "0.2", false)).toEqual([]);
     expect(describePrinter(defaultSettings().convert, "0.4", true)).toEqual([]);
+  });
+});
+
+/** What the bundled catalog offers one release's options, read the way the page reads it. */
+async function catalogChoices(release?: string): Promise<OptionChoices> {
+  const newest = await loadCatalog(bundledProfileSource());
+  const catalog = release === undefined ? newest : await newest.forRelease(release);
+  return { layerHeights: layerHeightsBySize(catalog.list()), polymakerSizes: filamentModeNozzleSizes(catalog.index.filamentNames, "polymaker") };
+}
+
+describe("the layer height", () => {
+  const sizes = { layerHeights: { "0.4": [0.08, 0.2, 0.28], "0.6": [0.18, 0.24, 0.3] }, polymakerSizes: ["0.4"] };
+  it("keeps the creator's layers by default, and says so in the web app's words", () => {
+    expect(defaultSettings().convert.layerHeight).toBeNull();
+    expect(KEEP_LAYERS).toBe("Keep the creator's layers");
+    expect(LAYER_HEIGHT_HELP).toBe(
+      "Converts the project with one layer height for every layer, from your nozzle's U1 profiles. It replaces the creator's variable layer heights and any layer heights set for part of the model.",
+    );
+  });
+  it("keeps a height through a store and read back, and nothing that isn't one", () => {
+    const parsed = parseSettings({ convert: { nozzle: "0.6", layerHeight: 0.18 } });
+    expect(parsed.convert.layerHeight).toBe(0.18);
+    expect(parseSettings(JSON.parse(JSON.stringify(parsed)))).toEqual(parsed);
+    for (const stored of ["0.18", 0, -0.2, 11, Number.NaN, Number.POSITIVE_INFINITY, true, null, [0.18], { mm: 0.18 }, "../0.18", "<img>"]) {
+      expect(parseSettings({ convert: { nozzle: "0.6", layerHeight: stored } }).convert.layerHeight).toBeNull();
+    }
+  });
+  it("has none with Match the file, where the nozzle size differs from file to file", () => {
+    expect(parseSettings({ convert: { nozzle: "match", layerHeight: 0.2 } }).convert.layerHeight).toBeNull();
+    expect(layerHeightsFor(sizes, "match")).toEqual([]);
+  });
+  it("is written in mm with no trailing zeros", () => {
+    expect([0.3, 0.18, 0.08, 0.2, 0.30000000000000004].map(layerHeightText)).toEqual(["0.3 mm", "0.18 mm", "0.08 mm", "0.2 mm", "0.3 mm"]);
+  });
+  it("lists each nozzle size's heights once, lowest first, and leaves out what isn't a profile's size or height", () => {
+    const listed = layerHeightsBySize([
+      { nozzleDiameter: "0.4", layerHeight: 0.2 },
+      { nozzleDiameter: "0.4", layerHeight: 0.08 },
+      { nozzleDiameter: "0.4", layerHeight: 0.2 },
+      { nozzleDiameter: "0.6", layerHeight: 0.3 },
+      { nozzleDiameter: "match", layerHeight: 0.2 },
+      { nozzleDiameter: "__proto__", layerHeight: 0.2 },
+      { nozzleDiameter: "0.5", layerHeight: 0.2 },
+      { nozzleDiameter: "0.6", layerHeight: "0.18" },
+      { nozzleDiameter: "0.6", layerHeight: -1 },
+      { nozzleDiameter: "0.6", layerHeight: Number.NaN },
+      { nozzleDiameter: 0.6, layerHeight: 0.24 },
+      {},
+    ]);
+    expect(listed).toEqual({ "0.4": [0.08, 0.2], "0.6": [0.3] });
+    expect(layerHeightsFor({ layerHeights: listed, polymakerSizes: null }, "0.4")).toEqual([0.08, 0.2]);
+    expect(layerHeightsFor({ layerHeights: listed, polymakerSizes: null }, "0.8")).toEqual([]);
+    expect(layerHeightsFor(undefined, "0.4")).toEqual([]);
+  });
+  it("is the catalog's heights for each nozzle size, in every release", async () => {
+    const catalog = await loadCatalog(bundledProfileSource());
+    for (const release of catalog.releases().map((each) => each.version)) {
+      const { layerHeights } = await catalogChoices(release);
+      expect(Object.keys(layerHeights).sort()).toEqual(["0.2", "0.4", "0.6", "0.8"]);
+      expect(layerHeights["0.6"]).toEqual([0.18, 0.24, 0.3]);
+      expect(layerHeights["0.4"]).toEqual([0.08, 0.1, 0.12, 0.16, 0.2, 0.24, 0.28]);
+      for (const heights of Object.values(layerHeights)) expect(heights).toEqual([...new Set(heights)].sort((a, b) => a - b));
+    }
+  });
+  it("is sent only when the size the file is made for has it, so a stored height the catalog lacks can't fail a file", () => {
+    const convert = { ...defaultSettings().convert, nozzle: "0.6" as const, layerHeight: 0.18 };
+    expect(convertOptions(convert, ["2.4.1"], true, [0.18, 0.24, 0.3]).layerHeight).toBe(0.18);
+    expect(convertOptions(convert, ["2.4.1"], true, [0.08, 0.2])).not.toHaveProperty("layerHeight");
+    expect(convertOptions(convert, ["2.4.1"])).not.toHaveProperty("layerHeight");
+    expect(convertOptions({ ...convert, layerHeight: null }, ["2.4.1"], true, [0.18])).not.toHaveProperty("layerHeight");
+  });
+  it("goes back to the creator's layers when the nozzle size chosen doesn't have it", () => {
+    const convert = { ...defaultSettings().convert, nozzle: "0.6" as const, layerHeight: 0.18 };
+    expect(settleConvert(convert, sizes)).toBe(convert);
+    expect(settleConvert({ ...convert, nozzle: "0.4" }, sizes).layerHeight).toBeNull();
+    expect(settleConvert({ ...convert, nozzle: "0.8" }, sizes).layerHeight).toBeNull();
+    expect(settleConvert({ ...convert, nozzle: "match" }, sizes).layerHeight).toBeNull();
+    expect(settleConvert({ ...convert, layerHeight: 0.24 }, sizes).layerHeight).toBe(0.24);
+    // Without the catalog's list, nothing is taken away: the conversion checks the height again.
+    expect(settleConvert({ ...convert, nozzle: "0.4" }, undefined).layerHeight).toBe(0.18);
+  });
+});
+
+describe("the Filament choices", () => {
+  const sizes = { layerHeights: {}, polymakerSizes: ["0.4"] };
+  it("are Original and then the library's, in its order, each with the web app's words", () => {
+    expect(FILAMENT_NAMES).toEqual(["original", ...FILAMENT_COMPLIANCE_MODES]);
+    expect(FILAMENT_NAMES.map((choice) => FILAMENT_CHOICES[choice].label)).toEqual(["Original", "Snapmaker", "Polymaker", "Generic"]);
+    expect(FILAMENT_CHOICES.polymaker.description).toBe("Switch PLA to Polymaker presets, with their own settings; other filaments as Snapmaker.");
+    expect(FILAMENT_CHOICES.original.description).toBe("Keep the creator's filaments: names and settings as in the file.");
+    expect(FILAMENT_CHOICES.snapmaker.description).toBe("Switch to Snapmaker presets, with their own settings, for Snapmaker Space.");
+    expect(FILAMENT_CHOICES.generic.description).toBe("Switch to Generic presets, with their own settings.");
+  });
+  it("offer Polymaker only for a nozzle size that has its presets, and say why not", () => {
+    expect(NOZZLE_SIZES.filter((size) => polymakerOffered(sizes, size))).toEqual(["0.4", "match"]);
+    expect(polymakerReason(["0.4"])).toBe("Snapmaker Orca has Polymaker presets for the 0.4 mm nozzle only.");
+    expect(polymakerReason(["0.4", "0.6"])).toBe("Snapmaker Orca has Polymaker presets for the 0.4 and 0.6 mm nozzles only.");
+    // When the catalog couldn't say, it stays a choice: the library converts it as Snapmaker where it has no presets.
+    for (const unknown of [undefined, { layerHeights: {}, polymakerSizes: null }]) expect(NOZZLE_SIZES.every((size) => polymakerOffered(unknown, size))).toBe(true);
+  });
+  it("agree with the catalog, in every release: Polymaker presets for the 0.4 mm nozzle only", async () => {
+    const catalog = await loadCatalog(bundledProfileSource());
+    for (const release of catalog.releases().map((each) => each.version)) {
+      const choices = await catalogChoices(release);
+      expect(choices.polymakerSizes).toEqual(["0.4"]);
+      const table = (await catalog.forRelease(release)).index.filamentNames;
+      for (const size of ["0.2", "0.4", "0.6", "0.8"] as const) expect(polymakerOffered(choices, size)).toBe(filamentModeHasPresets(table, "polymaker", size));
+    }
+  });
+  it("switch Polymaker to Snapmaker when the nozzle size chosen has no Polymaker presets, and leave the others alone", () => {
+    const convert = { ...defaultSettings().convert, filamentNames: "polymaker" as const };
+    expect(settleConvert(convert, sizes)).toBe(convert);
+    expect(settleConvert({ ...convert, nozzle: "0.6" }, sizes).filamentNames).toBe("snapmaker");
+    expect(settleConvert({ ...convert, nozzle: "match" }, sizes).filamentNames).toBe("polymaker");
+    for (const filamentNames of ["original", "snapmaker", "generic"] as const) expect(settleConvert({ ...convert, nozzle: "0.6", filamentNames }, sizes).filamentNames).toBe(filamentNames);
   });
 });

@@ -106,7 +106,7 @@ describe("a result's notes", () => {
 describe("the Filament option's help", () => {
   it("is the wording the any2orca web app uses", () => {
     expect(FILAMENT_HELP).toBe(
-      "Original keeps the creator's filaments exactly: their names and their settings. Generic and Snapmaker switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Snapmaker Orca would use the preset's settings anyway once a filament carries its name.",
+      "Original keeps the creator's filaments exactly: their names and their settings. Snapmaker, Polymaker and Generic switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Snapmaker Orca would use the preset's settings anyway once a filament carries its name.",
     );
   });
 });

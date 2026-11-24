@@ -14,13 +14,14 @@ The first release. any2u1 is a browser extension that turns a 3MF project from a
 - **Options:**
   - **Snapmaker Orca version:** the version the file is made for. The newest is the default, a notice says when an update adds one, and every version from 2.4.0 on stays in the picker.
   - **Your U1's nozzle size:** the size the file is made for, 0.4 mm unless you change it, or **Match the file** for the creator's size. A project made for another size is converted anyway, with a note. A filament tuned for another nozzle size takes the calibration of Snapmaker's U1 preset for its material, and a filament of another diameter takes a preset Snapmaker Orca ships, where one fits; the result says so first.
+  - **Layer height:** keep the creator's layers, or convert with one layer height for every layer, from the heights the U1's profiles have for your nozzle size. When a project has layers outside the range those profiles use, the result says so.
   - **High-flow toolheads,** for each toolhead fitted with the Liber High Flow Hotend.
   - **My nozzles are hardened steel,** so Snapmaker Orca warns about abrasive filaments correctly.
-  - **Filament:** Original keeps the creator's filaments exactly, names and settings. Generic and Snapmaker switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay.
+  - **Filament:** Original keeps the creator's filaments exactly, names and settings. Snapmaker, Polymaker and Generic switch each filament to a preset Snapmaker Orca ships, with that preset's own settings, for uploads to Snapmaker Space; colors and order stay. Polymaker switches each PLA to a Polymaker preset, for the 0.4 mm nozzle.
 - **Offers your way:** a small window, or only a number on the toolbar button. Turn offers off, or off for one site with **Not on**.
 - **Settings** lists the hosts you gave access to, with **Remove**, and **Copy the versions** copies the browser, extension and library versions for a bug report, naming no file, site or address.
 - **Permissions:** downloads and storage, plus access to one host only when you allow it. It never runs in private windows.
 
 ### Converted files
 
-- Converts with any2orca 0.16.0 and any2orca-profiles 0.6.0.
+- Converts with any2orca 0.17.0 and any2orca-profiles 0.6.0.
