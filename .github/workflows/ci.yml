@@ -1,0 +1,48 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Typecheck and unit tests.
+  test:
+    runs-on: ubuntu-latest
+    # A run takes a minute or two; a stall fails here instead of at the 6-hour job limit.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  # The browser tests: the built extension, loaded in Playwright's Chromium.
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      # The libraries Chromium loads. The runner's package mirror sometimes stalls. apt retries a download that stops,
+      # and each try runs as root under one time limit, so a stalled apt-get is stopped with it and frees the package
+      # lock for the next try.
+      - run: |
+          echo 'Acquire::Retries "3"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries > /dev/null
+          for attempt in 1 2 3; do
+            sudo env "PATH=$PATH" timeout -k 15s 5m npx playwright install-deps chromium && exit 0
+            echo "Installing Chromium's system packages stalled or failed (try $attempt of 3)"
+          done
+          exit 1
+        timeout-minutes: 17
+      - run: npm run test:e2e
