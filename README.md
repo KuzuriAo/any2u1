@@ -171,6 +171,10 @@ This builds, then writes four files to `dist`: `any2u1-<version>-chrome.zip` (fo
 
 The build is reproducible. These two setups give byte-identical files: macOS on Apple silicon with Node.js 26.3.0 and npm 11.16.0, and Ubuntu 24.04 on ARM64 with Node.js 24.14.0 and npm 11.9.0, built as an ordinary user. To check a release, unpack its source zip, run the two commands above, and compare `dist/firefox` (or `dist/chrome`) with the unpacked extension. The build makes no requests beyond what `npm ci` downloads from the npm registry.
 
+## Problems and requests
+
+Found a problem, or want something any2u1 doesn't do? [Open an issue](https://github.com/KuzuriAo/any2u1/issues/new/choose). For a problem, the form asks for the report the extension copies for you: **Copy a report** under a file that didn't convert, or **Copy the versions** in the settings.
+
 ## Security
 
 To report a security problem, see [SECURITY.md](SECURITY.md). Please don't open a public issue for it.
