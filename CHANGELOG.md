@@ -1,5 +1,13 @@
 # any2u1
 
+## 0.1.1
+
+The first version on Firefox Add-ons. Converted files are the same as 0.1.0's.
+
+### Fixes
+
+- **Settings,** at the foot of the convert page and the small window, is in the accent color like the pages' links, so it's easier to find.
+
 ## 0.1.0
 
 The first release. any2u1 is a browser extension that turns a 3MF project from any site into a Snapmaker U1 file, on your own device. It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio, PrusaSlicer and QIDI Studio. Nothing is uploaded.

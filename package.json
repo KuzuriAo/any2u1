@@ -1,6 +1,6 @@
 {
   "name": "any2u1",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A browser extension that turns a 3MF from Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio, PrusaSlicer or QIDI Studio into a Snapmaker U1 file, entirely on your device.",
   "license": "AGPL-3.0-or-later",
