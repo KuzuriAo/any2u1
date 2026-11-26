@@ -75,6 +75,8 @@ button.disclosure[hidden] { display: none; }
 button.disclosure::before { content: "\25B8" / ""; display: inline-block; width: 1em; text-decoration: none; }
 button.disclosure[aria-expanded="true"]::before { content: "\25BE" / ""; }
 .tip button.link { color: inherit; }
+/* Settings, in the convert page's footer, is in the accent like the pages' links, so it stands out from the gray footer text. */
+footer button.link { color: var(--accent); }
 /* The first-run panel: what happens next, then how to pin the button, set off like the page's other tips. */
 #welcome > p { margin: 0 0 0.6rem; }
 .tip.pin p { margin: 0; }
