@@ -24,17 +24,31 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # The libraries Mozilla's Linux build loads, even headless. The runner's package mirror sometimes stalls. apt
-      # retries a download that stops, and each try runs as root under one time limit, so a stalled apt-get is stopped
-      # with it and frees the package lock for the next try.
+      # The libraries Mozilla's Linux build loads, even headless, and a desktop font (below). The runner's package mirror
+      # sometimes stalls. apt retries a download that stops, and each try runs as root under one time limit, so a
+      # stalled apt-get is stopped with it and frees the package lock for the next try.
       - run: |
           echo 'Acquire::Retries "3"; Acquire::http::Timeout "30"; Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries > /dev/null
           for attempt in 1 2 3; do
-            sudo timeout -k 15s 5m sh -c 'apt-get update -q && apt-get install -y -q --no-install-recommends libgtk-3-0t64 libasound2t64 libx11-xcb1 libdbus-glib-1-2' && exit 0
+            sudo timeout -k 15s 5m sh -c 'apt-get update -q && apt-get install -y -q --no-install-recommends libgtk-3-0t64 libasound2t64 libx11-xcb1 libdbus-glib-1-2 fonts-noto-core' && exit 0
             echo "Installing Firefox's system packages stalled or failed (try $attempt of 3)"
           done
           exit 1
         timeout-minutes: 17
+      # The pages use the system's own font, and the layout tests measure what fits in the small window. The runner
+      # has only DejaVu Sans, a bare system's fallback that is wider than a desktop's own font, so the tests use Noto
+      # Sans, KDE Plasma's default and the widest of the desktop fonts tried (Noto Sans, Ubuntu Sans, Cantarell).
+      - run: |
+          mkdir -p ~/.config/fontconfig
+          cat > ~/.config/fontconfig/fonts.conf <<'EOF'
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+          <fontconfig>
+            <alias binding="strong"><family>sans-serif</family><prefer><family>Noto Sans</family></prefer></alias>
+            <alias binding="strong"><family>system-ui</family><prefer><family>Noto Sans</family></prefer></alias>
+          </fontconfig>
+          EOF
+          fc-match system-ui | grep -F '"Noto Sans"'
       # Firefox from Mozilla's release archive, checked against the SHA-256 list published with the release.
       - env:
           VERSION: ${{ matrix.firefox }}
