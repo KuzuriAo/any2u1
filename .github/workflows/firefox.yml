@@ -8,7 +8,8 @@ permissions:
 
 jobs:
   # The Firefox lint and the Firefox tests, in stock Firefox from Mozilla: the oldest release the extension supports
-  # (its strict_min_version, an ESR) and the current release. Update the two versions when Mozilla ships new ones.
+  # (its strict_min_version, an ESR) and the current release. Update the two versions when Mozilla ships new ones,
+  # in quotes: YAML reads an unquoted 161.0 as the number 161, which isn't a release name.
   firefox:
     runs-on: ubuntu-latest
     # A run takes a few minutes; a stall fails here instead of at the 6-hour job limit.
@@ -16,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        firefox: [153.8.0esr, 161.0]
+        firefox: ["153.8.0esr", "161.0"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
