@@ -6,7 +6,13 @@ A browser extension that turns a 3MF project into a Snapmaker U1 file, on any si
 
 It reads projects saved by Bambu Studio, Creality Print, Anycubic Slicer Next, ElegooSlicer, Flash Studio, PrusaSlicer and QIDI Studio. It's built on the [any2orca](https://github.com/KuzuriAo/any2orca) library.
 
-It's tested on Chrome 157, Edge 158, Brave 1.99, Firefox ESR 153 and Firefox 160, and needs Firefox 153 or later, or Chrome or Edge 111 or later (or a Brave built on that Chromium or a later one). It's for desktop browsers: Firefox for Android has no downloads API for extensions, which any2u1 is built on. It isn't in any extension store yet, so for now you load it yourself.
+It's tested on Chrome 157, Edge 158, Brave 1.99, Firefox ESR 153 and Firefox 160, and needs Firefox 153 or later, or Chrome or Edge 111 or later (or a Brave built on that Chromium or a later one). It's for desktop browsers: Firefox for Android has no downloads API for extensions, which any2u1 is built on.
+
+## Install
+
+- **Chrome or Brave:** [Chrome Web Store](https://chromewebstore.google.com/detail/any2u1-3mf-to-snapmaker-u/bjjicgfpooegokebfimgbkabinlbhidk)
+- **Edge:** [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/any2u1-3mf-to-snapmaker-/cfninckbfcdecfaogpaiifjhmpkghgfi)
+- **Firefox:** not on Firefox Add-ons yet. Until it is, build it and load it yourself, as below.
 
 ## Supported slicers
 
@@ -22,7 +28,7 @@ It's tested on Chrome 157, Edge 158, Brave 1.99, Firefox ESR 153 and Firefox 160
 
 A project from another slicer gets a message naming it, and nothing is converted.
 
-## Try it
+## Build it yourself
 
 You need [Node.js](https://nodejs.org/) 22 or newer and Git.
 
