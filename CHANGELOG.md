@@ -1,8 +1,12 @@
 # any2u1
 
+## 0.1.2
+
+The first version on Firefox Add-ons. The extension and the files it makes are the same as 0.1.1's.
+
 ## 0.1.1
 
-The first version on Firefox Add-ons. Converted files are the same as 0.1.0's.
+Converted files are the same as 0.1.0's.
 
 ### Fixes
 
