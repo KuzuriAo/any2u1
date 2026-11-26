@@ -12,7 +12,9 @@ It's tested on Chrome 158, Edge 158, Brave 1.99, Firefox ESR 153 and Firefox 161
 
 - **Chrome or Brave:** [Chrome Web Store](https://chromewebstore.google.com/detail/any2u1-3mf-to-snapmaker-u/bjjicgfpooegokebfimgbkabinlbhidk)
 - **Edge:** [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/any2u1-3mf-to-snapmaker-/cfninckbfcdecfaogpaiifjhmpkghgfi)
-- **Firefox:** not on Firefox Add-ons yet. Until it is, build it and load it yourself, as below.
+- **Firefox:** [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/any2u1/)
+
+Or build it and load it yourself, as below.
 
 ## Supported slicers
 
