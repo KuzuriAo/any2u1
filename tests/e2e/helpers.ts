@@ -7,7 +7,7 @@ import { chromium, expect, type BrowserContext, type Page, type Worker } from "@
 import { SMALL_WINDOW } from "../shared/layout";
 import { startSiteServer, type SiteServer } from "../shared/site";
 
-export { fixture, fixturePath, libraryVersion, longNamesProject, plateNotesProject, POLYMAKER, PRUSA_FIXTURES, SAMPLE, sha256, sharedToolheadProject, superSlicerProject, thinLayersProject } from "../shared/fixtures";
+export { extensionVersion, fixture, fixturePath, libraryVersion, longNamesProject, plateNotesProject, POLYMAKER, PRUSA_FIXTURES, SAMPLE, sha256, sharedToolheadProject, superSlicerProject, thinLayersProject } from "../shared/fixtures";
 
 export const extensionPath = fileURLToPath(new URL("../../dist/chrome", import.meta.url));
 

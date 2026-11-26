@@ -7,7 +7,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { REPORT_PROBLEM_URL } from "../../src/core/report";
 import { FILAMENT_HELP, NOZZLE_HELP } from "../../src/core/settings";
 import { FILAMENT_ROWS, LAYOUTS, textContrast, type FilamentRows, type TextContrast } from "../shared/layout";
-import { libraryVersion } from "./helpers";
+import { extensionVersion, libraryVersion } from "./helpers";
 import { expectOnlyThese, fixture, fixturePath, launch, longNamesProject, plateNotesProject, POLYMAKER, PRUSA_FIXTURES, SAMPLE, savedNames, setSettings, sha256, sharedToolheadProject, superSlicerProject, type Session } from "./helpers";
 
 let session: Session;
@@ -816,7 +816,8 @@ test("the settings page copies the versions, and says what a download manager do
   await page.locator("#diagnostics .copy-report").click();
   await expect(page.locator("#diagnostics .copy-report")).toHaveText("Copied");
   const [copied] = await written(page);
-  expect(copied).toMatch(/^any2u1 diagnostics\nBrowser: Chrome \d+\nany2u1 0\.1\.0, any2orca \d+\.\d+\.\d+$/);
+  expect(copied).toMatch(/^any2u1 diagnostics\nBrowser: Chrome \d+\n/);
+  expect(copied?.split("\n").at(-1)).toBe(`any2u1 ${extensionVersion}, any2orca ${libraryVersion}`);
   const link = page.locator("#diagnostics").locator("a.report-link");
   await expect(link).toHaveText("Report a problem");
   await expect(link).toHaveAttribute("href", REPORT_PROBLEM_URL);

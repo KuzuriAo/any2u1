@@ -12,6 +12,7 @@ export const fixturePath = (name: string) => join(fixtures, name);
 export const fixture = (name: string) => readFileSync(fixturePath(name));
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 export const libraryVersion = (JSON.parse(readFileSync(fileURLToPath(new URL("../../node_modules/any2orca/package.json", import.meta.url)), "utf-8")) as { version: string }).version;
+export const extensionVersion = (JSON.parse(readFileSync(fileURLToPath(new URL("../../package.json", import.meta.url)), "utf-8")) as { version: string }).version;
 export const SAMPLE = "bambu-studio-2.8.4.57-beta.3mf";
 /**
  * Seven plates and six filaments: two Polymaker PLAs, a Polymaker PETG, a Bambu PLA, a Polymaker ABS and a Polymaker
