@@ -48,7 +48,8 @@ test("a worker that fails mid-conversion: the file gets a message, and the next 
   const page = await openWithWorkerHook();
   await page.evaluate(() => ((window as unknown as { swallow: boolean }).swallow = true));
   await page.setInputFiles("#file", { name: "stuck.3mf", mimeType: "model/3mf", buffer: fixture(SAMPLE) });
-  await expect(page.locator("#status")).toContainText("Converting stuck.3mf");
+  // The line names the file while the settings still load; "Opening the project" comes as the file goes to the worker.
+  await expect(page.locator("#status")).toContainText("Converting stuck.3mf · Opening the project");
   expect(await failLatestWorker(page)).toBe(1);
   await expect(page.locator(".failed strong")).toHaveText("stuck.3mf");
   await expect(page.locator(".failed p")).toContainText("ran out of memory");
@@ -81,7 +82,7 @@ test("Stop ends a conversion that doesn't finish, says so without a report, and 
   await expect(page.locator("#stop")).toBeHidden();
   await page.evaluate(() => ((window as unknown as { swallow: boolean }).swallow = true));
   await page.setInputFiles("#file", { name: "stuck.3mf", mimeType: "model/3mf", buffer: fixture(SAMPLE) });
-  await expect(page.locator("#status")).toContainText("Converting stuck.3mf");
+  await expect(page.locator("#status")).toContainText("Converting stuck.3mf · Opening the project");
   await page.locator("#stop").click();
   await expect(page.locator(".failed strong")).toHaveText("stuck.3mf");
   await expect(page.locator(".failed p")).toContainText("Stopped before it finished");

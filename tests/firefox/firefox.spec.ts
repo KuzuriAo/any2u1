@@ -134,7 +134,8 @@ test("a worker that fails mid-conversion: the file gets a message, and the next 
   })()`);
   await page.evaluate(`(window.swallow = true)`);
   await page.setFiles("#file", [{ name: "stuck.3mf", bytes: fixture(SAMPLE) }], "#choose");
-  await page.until(`document.querySelector("#status")?.textContent.includes("Converting stuck.3mf")`);
+  // The line names the file while the settings still load; "Opening the project" comes as the file goes to the worker.
+  await page.until(`document.querySelector("#status")?.textContent.includes("Converting stuck.3mf · Opening the project")`);
   // What a worker that runs out of memory looks like from the page.
   expect(await page.evaluate(`(() => { const worker = window.workers.at(-1); worker.dispatchEvent(new ErrorEvent("error", { message: "out of memory" })); worker.terminate(); return window.workers.length; })()`)).toBe(1);
   await page.until(`document.querySelector(".failed strong")?.textContent === "stuck.3mf"`);
